@@ -93,6 +93,7 @@ export async function POST(request: Request) {
       "match_knowledge_chunks",
       {
         query_embedding: JSON.stringify(qEmbedding),
+        match_threshold: 0.5,
         match_count: topK,
       }
     )
