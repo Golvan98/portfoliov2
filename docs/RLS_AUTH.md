@@ -155,17 +155,20 @@ WITH CHECK (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid
 
 ---
 
-## 8) portfolio_projects (Public Read, Admin Write)
+## 8) portfolio_projects (RAG Seed Only — Service Role Access)
+
+**NOTE:** This table is NOT read by the landing page UI (hardcoded).
+It is accessed ONLY by the server-side RAG embedding pipeline via service role.
+No public SELECT policy needed — service role bypasses RLS.
+Admin can write via Supabase table editor (service role).
 
 ```sql
 ALTER TABLE public.portfolio_projects ENABLE ROW LEVEL SECURITY;
 
--- Anyone can read published portfolio projects (landing page)
-CREATE POLICY "portfolio_projects_public_read"
-ON public.portfolio_projects FOR SELECT
-USING (is_published = true);
+-- No public read policy — landing page is hardcoded, not DB-driven
+-- Service role (used by /api/agent and embedding job) bypasses RLS automatically
 
--- Only admin can insert/update/delete
+-- Only admin can insert/update/delete via app (Supabase table editor uses service role anyway)
 CREATE POLICY "portfolio_projects_admin_write"
 ON public.portfolio_projects FOR INSERT
 WITH CHECK (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
@@ -177,5 +180,33 @@ WITH CHECK (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid
 
 CREATE POLICY "portfolio_projects_admin_delete"
 ON public.portfolio_projects FOR DELETE
+USING (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
+```
+
+---
+
+## 9) work_experience (RAG Seed Only — Service Role Access)
+
+**NOTE:** This table is NOT read by any UI. Accessed ONLY by the server-side RAG embedding pipeline via service role.
+No public SELECT policy needed. Updated manually via Supabase table editor when a new role is added.
+
+```sql
+ALTER TABLE public.work_experience ENABLE ROW LEVEL SECURITY;
+
+-- No public read policy — no UI reads from this table
+-- Service role (used by /api/agent and embedding job) bypasses RLS automatically
+
+-- Only admin can insert/update/delete
+CREATE POLICY "work_experience_admin_write"
+ON public.work_experience FOR INSERT
+WITH CHECK (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
+
+CREATE POLICY "work_experience_admin_update"
+ON public.work_experience FOR UPDATE
+USING (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()))
+WITH CHECK (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
+
+CREATE POLICY "work_experience_admin_delete"
+ON public.work_experience FOR DELETE
 USING (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
 ```

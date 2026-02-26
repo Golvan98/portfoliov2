@@ -7,7 +7,7 @@ Use these definitions consistently across all files and code. When in doubt, ref
 | Term | Definition |
 |------|------------|
 | **MyHeadSpace** | Gilvin's private workspace app at `/myheadspace`. CRUD for categories, projects, tasks, and task_notes. Branded as a standalone product, not an admin panel. Only accessible to `gilvinsz@gmail.com`. |
-| **Portfolio Projects** | Curated public showcase entries stored in `portfolio_projects` table. Displayed on the landing page. Seeded via SQL for MVP. Source type: `portfolio_project` in RAG. Different from MyHeadSpace projects. |
+| **Portfolio Projects** | Gilvin's flagship showcase projects (ClipNET, StudySpring, MyHeadSpace). Landing page cards are HARDCODED — not DB-driven. The `portfolio_projects` table exists purely as a RAG knowledge seed so the agent can answer questions about these projects. Seeded once via SQL. |
 | **MyHeadSpace Projects** | Projects created inside the MyHeadSpace admin app. Source type: `project`. |
 | **Activity Snippet** | The small widget on the landing page (`/`) showing the last 3 `public_activity` items + "Last active: X ago". |
 | **/now page** | The route `/now` showing a longer history of `public_activity` items with load more / pagination. |
@@ -20,9 +20,12 @@ Use these definitions consistently across all files and code. When in doubt, ref
 | **Hybrid Quota** | Usage enforcement: logged-in users get per-user daily limits; anonymous users get per-IP daily limits. Both stored in DB. |
 | **consume_agent_quota** | The Supabase RPC function that atomically checks and increments quota. `SECURITY DEFINER`. Called before every OpenAI request. |
 | **Admin** | Any user whose `user_id` exists in the `app_admins` table. Currently only Gilvin (`gilvinsz@gmail.com`). |
-| **portfolio_projects** | Supabase table storing curated showcase entries. Public can SELECT where `is_published = true`. Admin can write. Ordered by `display_order`. Seeded via SQL for MVP. |
+| **portfolio_projects** | Supabase table used ONLY as a RAG seed for flagship projects. NOT used by the landing page UI (which is hardcoded). No public SELECT policy. Service role reads it for embedding. Updated manually via Supabase table editor. |
 | **Kanban board** | The task view inside MyHeadSpace. 3 columns: To Do, In Progress, Done. Maps to `tasks.status` field (`todo` / `in_progress` / `done`). |
 | **Glass wall** | The UX pattern for `/myheadspace` — publicly viewable by anyone, but mutation attempts by non-admins show a Sonner toast instead of a redirect or 403. |
 | **Sonner toast** | The toast notification library used for the glass wall message and other non-blocking UI feedback. Already wired via v0 scaffold. |
 | **Task-scoped notes** | Notes in the right panel of MyHeadSpace belong to a specific task (via `task_notes.task_id`), not to a project. |
 | **`...` kebab menu** | The three-dot overflow menu on category rows, project rows, project tabs, and task cards. Reveals Edit/Delete actions. Visible on hover. |
+| **work_experience** | Supabase table storing Gilvin's work history (Ross Media Group, Northspyre, PivotalHire, Pylon). RAG seed only — no UI reads from it. Service role access for embedding pipeline. Seeded once via SQL after app_admins is set up. |
+| **Work Experience (RAG source)** | Source type `work_experience` in `knowledge_docs`. Allows the agent to answer questions about Gilvin's career history, roles, and skills. Content blob includes company, role, industry, duration, highlights, and tech stack. |
+| **personal_info** | RAG source type for static personal knowledge — bio, education, skills, certifications. Seeded directly as `knowledge_docs` rows (no separate table). No CRUD hooks — update manually in Supabase when info changes. |

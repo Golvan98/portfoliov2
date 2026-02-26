@@ -53,7 +53,20 @@ Embed content from:
 - MyHeadSpace projects
 - MyHeadSpace tasks
 - task_notes
-- curated portfolio project entries (portfolio_project)
+- curated portfolio project entries (`portfolio_project` source type)
+- work experience entries (`work_experience` source type)
+- personal info entries (`personal_info` source type) — bio, education, skills, certifications
+
+**Source types (LOCKED):** `project` | `task` | `note` | `portfolio_project` | `work_experience` | `personal_info`
+
+**IMPORTANT — portfolio_projects table purpose (LOCKED):**
+- The `portfolio_projects` table exists PURELY as a RAG knowledge seed.
+- It does NOT drive the landing page UI — landing page project cards are HARDCODED in the component.
+- These are Gilvin's FLAGSHIP projects only (ClipNET, StudySpring, MyHeadSpace) — not personal/hobby projects.
+- Seeded once via SQL. Updated manually in Supabase table editor when flagship project details change.
+- When updated, RAG pipeline re-embeds the new content automatically (content_hash change detection).
+- There is NO admin UI for portfolio_projects — Supabase table editor is sufficient for 3 rows.
+- Landing page stays hardcoded forever unless Gilvin manually edits the component file.
 
 Do NOT embed `public_activity` rows for MVP (too noisy, redundant).
 
@@ -181,3 +194,28 @@ Quota is enforced server-side via `consume_agent_quota` RPC before any OpenAI ca
 - `not-found.tsx` — Claude Code builds inline
 - Login modal — Claude Code builds inline
 - `/chat` page — OMITTED (floating widget only)
+
+---
+
+## L) Personal Info & Static Links (LOCKED)
+
+**About section copy (landing page — hardcoded):**
+> "I'm Gilvin Zalsos — a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from 'messy input' to 'clean output.' My technical comfort zone is end-to-end backend execution — designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize — especially in backend/pipeline-heavy work — that's what I do."
+
+**Static links (hardcoded in navbar + footer):**
+- GitHub: https://github.com/Golvan98
+- LinkedIn: https://www.linkedin.com/in/gilvin-zalsos-213692141/
+- Resume: https://drive.google.com/file/d/1d_RmS4N7g7aRTEP-VICP0yKygA8KKmfn/view?usp=sharing
+- Email: gilvinsz@gmail.com
+- Vercel URL: https://portfoliov2-three-liard.vercel.app (no custom domain for MVP)
+
+**Project card external links:**
+- ClipNET and StudySpring "Test it out" and "View code" buttons: leave href as `#` for now — links not ready yet
+- MyHeadSpace "Test it out" button: links to `https://portfoliov2-three-liard.vercel.app/myheadspace`
+
+**OG tags for `app/layout.tsx`:**
+- title: "Gilvin Zalsos — Full Stack Developer"
+- description: "Backend-focused full stack developer from the Philippines. Ask my AI agent anything about my projects and experience."
+- og:url: https://portfoliov2-three-liard.vercel.app
+
+**personal_info RAG docs:** Seeded directly as `knowledge_docs` rows (no separate table). See DATA_MODEL.md for seed SQL. Covers: bio, education (BS Information Systems, MSU-IIT, 2015-2019), skills, certifications, and community involvement.

@@ -18,7 +18,8 @@
   - projects (belongs to category)
   - tasks (belongs to project) — status: todo/in_progress/done (kanban)
   - task_notes (belongs to task, task-scoped)
-- Seed `portfolio_projects` table via SQL for MVP (no admin UI for this yet)
+- Seed `portfolio_projects` table via SQL for MVP — RAG seed only, NOT used by landing page UI
+- Landing page project cards remain HARDCODED — personal/hobby projects stay private in MyHeadSpace
 
 ## Phase 3 — Public Activity (read-only)
 - `public_activity` table

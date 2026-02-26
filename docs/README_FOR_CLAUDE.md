@@ -30,3 +30,24 @@ This repo builds **Gilvin Portfolio v2** (Next.js + Supabase + OpenAI + RAG-lite
 - Embeddings tables are NOT publicly selectable under any circumstance.
 - Agent answers using retrieval only — inline "From …" citations required.
 - Hybrid quotas: logged-in users get per-user limits, anonymous get per-IP limits — both DB-backed.
+
+---
+
+## Key URLs (Locked)
+
+- **Live site:** https://portfoliov2-three-liard.vercel.app
+- **GitHub:** https://github.com/Golvan98/portfoliov2
+- **Supabase project ID:** liqlzqrylfhuuxqbyjho
+- **Admin email:** gilvinsz@gmail.com
+- **GitHub profile:** https://github.com/Golvan98
+- **LinkedIn:** https://www.linkedin.com/in/gilvin-zalsos-213692141/
+- **Resume PDF:** https://drive.google.com/file/d/1d_RmS4N7g7aRTEP-VICP0yKygA8KKmfn/view?usp=sharing
+
+## About Section Copy (Hardcoded — do not change)
+
+"I'm Gilvin Zalsos — a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from 'messy input' to 'clean output.' My technical comfort zone is end-to-end backend execution — designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize — especially in backend/pipeline-heavy work — that's what I do."
+
+## Project Card Links
+
+- ClipNET and StudySpring buttons (Test it out / View code): href="#" — links not ready yet, keep as placeholder
+- MyHeadSpace Test it out: href="/myheadspace"

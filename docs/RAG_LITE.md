@@ -5,6 +5,8 @@
 The Recruiter Agent answers questions grounded in Gilvin's actual content:
 - MyHeadSpace projects, tasks, task_notes
 - Curated portfolio project entries
+- Work experience entries
+- Personal info entries (bio, education, skills, certifications)
 
 Do NOT embed `public_activity` rows for MVP — too noisy, adds no retrieval value.
 
@@ -48,7 +50,7 @@ Title: "Task: {task_title}"
 Content:
 Task: {title}
 Project: {project_title}
-Status: {is_done ? 'Done' : 'In progress'}
+Status: {status}  -- 'todo' | 'in_progress' | 'done'
 Updated: {updated_at}
 ```
 
@@ -76,6 +78,33 @@ Bullets: {bullets}
 Links: {links}
 Updated: {updated_at}
 ```
+
+### Work experience doc
+```
+Title: "Work Experience: {company} — {role}"
+
+Content:
+Company: {company}
+Role: {role}
+Industry: {industry}
+Duration: {duration}
+Current role: {is_current ? 'Yes' : 'No'}
+Description: {description}
+Highlights:
+{highlights joined with newlines, each prefixed with '- '}
+Tech/Tools: {tech_list joined with ', '}
+Updated: {updated_at}
+```
+
+### Personal info doc
+```
+Title: "About Gilvin Zalsos" / "Education — Gilvin Zalsos" / "Skills — Gilvin Zalsos" / etc.
+
+Content:
+(Full text blob as seeded — see DATA_MODEL.md personal_info seed SQL)
+```
+Note: personal_info docs are seeded directly into knowledge_docs (no source table).
+They have no CRUD hooks — update manually in Supabase when info changes.
 
 ---
 
