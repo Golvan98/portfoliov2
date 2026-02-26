@@ -4,41 +4,45 @@ import { toast } from "sonner"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import type { TaskData } from "./task-card"
+import type { Task } from "@/lib/types"
 
 interface TaskDetailsProps {
-  task: TaskData | null
+  task: Task | null
   noteText: string
   onNoteChange: (text: string) => void
+  onSaveNote: () => Promise<void>
   isAdmin: boolean
 }
 
 const GLASS_WALL_MSG =
-  "This workspace is Gilvin's private area \u2014 only he can make changes."
+  "This workspace is Gilvin\u2019s private area \u2014 only he can make changes."
 
-const STATUS_LABEL: Record<TaskData["status"], string> = {
-  "todo": "To Do",
-  "in-progress": "In Progress",
-  "done": "Done",
+const STATUS_LABEL: Record<Task["status"], string> = {
+  todo: "To Do",
+  in_progress: "In Progress",
+  done: "Done",
 }
 
-const STATUS_COLOR: Record<TaskData["status"], string> = {
-  "todo": "bg-[#f3f4f6] text-muted-foreground dark:bg-white/5 dark:text-slate-400",
-  "in-progress": "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
-  "done": "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
+const STATUS_COLOR: Record<Task["status"], string> = {
+  todo: "bg-[#f3f4f6] text-muted-foreground dark:bg-white/5 dark:text-slate-400",
+  in_progress:
+    "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
+  done: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300",
 }
 
 export function TaskDetails({
   task,
   noteText,
   onNoteChange,
+  onSaveNote,
   isAdmin,
 }: TaskDetailsProps) {
-  function handleSave() {
+  async function handleSave() {
     if (!isAdmin) {
-      toast(GLASS_WALL_MSG)
+      toast(GLASS_WALL_MSG, { duration: 3000 })
       return
     }
+    await onSaveNote()
   }
 
   if (!task) {
@@ -80,11 +84,6 @@ export function TaskDetails({
             {STATUS_LABEL[task.status]}
           </span>
         </div>
-
-        {/* Description */}
-        <p className="mt-3 text-sm leading-relaxed text-muted-foreground dark:text-slate-400">
-          {task.description}
-        </p>
 
         <Separator className="my-4 bg-[#f3f4f6] dark:bg-white/8" />
 

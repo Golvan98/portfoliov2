@@ -16,10 +16,18 @@ const syne = Syne({
 })
 
 export const metadata: Metadata = {
-  title: 'Gilvin Zalsos — Full-Stack & AI Developer',
+  title: 'Gilvin Zalsos — Full Stack Developer',
   description:
-    'Full-stack developer building AI pipelines, polished web apps, and production-grade products. Explore live projects, real-time activity, and case studies.',
-  generator: 'v0.app',
+    'Backend-focused full stack developer from the Philippines. Ask my AI agent anything about my projects and experience.',
+  metadataBase: new URL('https://portfoliov2-three-liard.vercel.app'),
+  openGraph: {
+    title: 'Gilvin Zalsos — Full Stack Developer',
+    description:
+      'Backend-focused full stack developer from the Philippines. Ask my AI agent anything about my projects and experience.',
+    url: 'https://portfoliov2-three-liard.vercel.app',
+    siteName: 'Gilvin Zalsos',
+    type: 'website',
+  },
   icons: {
     icon: [
       {

@@ -31,6 +31,7 @@ const projects: ProjectData[] = [
     description:
       "A private workspace for managing projects, tasks, and notes \u2014 the operational core of this portfolio. Every action is publicly logged so visitors see real, ongoing work.",
     techStack: ["Next.js", "Supabase", "pgvector", "OpenAI"],
+    demoUrl: "https://portfoliov2-three-liard.vercel.app/myheadspace",
   },
 ]
 

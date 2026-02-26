@@ -10,6 +10,8 @@ export interface ProjectData {
   bgTint: string
   description: string
   techStack: string[]
+  demoUrl?: string
+  codeUrl?: string
 }
 
 const accentMap: Record<string, { badge: string; button: string; preview: string; text: string }> = {
@@ -93,17 +95,39 @@ export function ProjectCard({ project }: { project: ProjectData }) {
             <Button
               size="sm"
               className={`rounded-full ${colors.button}`}
+              asChild={!!project.demoUrl}
+              disabled={!project.demoUrl}
             >
-              Test it out
-              <ArrowRight className="size-3.5" />
+              {project.demoUrl ? (
+                <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
+                  Test it out
+                  <ArrowRight className="size-3.5" />
+                </a>
+              ) : (
+                <span>
+                  Test it out
+                  <ArrowRight className="size-3.5" />
+                </span>
+              )}
             </Button>
             <Button
               variant="outline"
               size="sm"
               className="rounded-full border-border text-foreground hover:bg-muted dark:border-white/10 dark:text-slate-300 dark:hover:text-white"
+              asChild={!!project.codeUrl}
+              disabled={!project.codeUrl}
             >
-              <Code className="size-3.5" />
-              View code
+              {project.codeUrl ? (
+                <a href={project.codeUrl} target="_blank" rel="noopener noreferrer">
+                  <Code className="size-3.5" />
+                  View code
+                </a>
+              ) : (
+                <span>
+                  <Code className="size-3.5" />
+                  View code
+                </span>
+              )}
             </Button>
           </div>
         </div>
