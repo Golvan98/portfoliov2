@@ -1,31 +1,18 @@
 import { createHash } from "crypto"
 import { NextResponse } from "next/server"
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 function hashIP(ip: string): string {
   return createHash("sha256").update(ip).digest("hex")
 }
 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
+const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" })
+
 async function embedText(text: string): Promise<number[]> {
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input: text,
-    }),
-  })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Embedding failed (${res.status}): ${body}`)
-  }
-
-  const data = await res.json()
-  return data.data[0].embedding
+  const result = await embeddingModel.embedContent(text)
+  return result.embedding.values
 }
 
 export async function POST(request: Request) {
@@ -126,40 +113,21 @@ RULES (must follow):
 SOURCES:
 ${sourcesText}`
 
-    // 7. Call OpenAI chat completion
+    // 7. Call Gemini chat completion
     const maxTokens = parseInt(process.env.AGENT_MAX_OUTPUT_TOKENS ?? "400")
 
-    const completionRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: message.trim() },
-          ],
-          max_tokens: maxTokens,
-        }),
-      }
-    )
+    const chatModel = genAI.getGenerativeModel({
+      model: "gemini-2.0-flash",
+      systemInstruction: systemPrompt,
+    })
 
-    if (!completionRes.ok) {
-      const errBody = await completionRes.text()
-      console.error("OpenAI completion error:", errBody)
-      return NextResponse.json(
-        { error: "Agent failed to generate a response" },
-        { status: 500 }
-      )
-    }
+    const completionResult = await chatModel.generateContent({
+      contents: [{ role: "user", parts: [{ text: message.trim() }] }],
+      generationConfig: { maxOutputTokens: maxTokens },
+    })
 
-    const completion = await completionRes.json()
     const answer =
-      completion.choices?.[0]?.message?.content ??
+      completionResult.response.text() ??
       "I couldn't generate a response."
 
     // 8. Build sources array for the client

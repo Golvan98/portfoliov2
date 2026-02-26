@@ -18,7 +18,7 @@ Use these definitions consistently across all files and code. When in doubt, ref
 | **Service Role** | The Supabase service role key (`SUPABASE_SERVICE_ROLE_KEY`). Used server-side only in `/api/agent` and the embedding job. Bypasses RLS. Never exposed to the client. |
 | **Conditional Chunking** | If content is short (≤ `CHUNK_MIN_CHARS_BEFORE_SPLIT`), create 1 chunk. Otherwise split into overlapping chunks. |
 | **Hybrid Quota** | Usage enforcement: logged-in users get per-user daily limits; anonymous users get per-IP daily limits. Both stored in DB. |
-| **consume_agent_quota** | The Supabase RPC function that atomically checks and increments quota. `SECURITY DEFINER`. Called before every OpenAI request. |
+| **consume_agent_quota** | The Supabase RPC function that atomically checks and increments quota. `SECURITY DEFINER`. Called before every Gemini request. |
 | **Admin** | Any user whose `user_id` exists in the `app_admins` table. Currently only Gilvin (`gilvinsz@gmail.com`). |
 | **portfolio_projects** | Supabase table used ONLY as a RAG seed for flagship projects. NOT used by the landing page UI (which is hardcoded). No public SELECT policy. Service role reads it for embedding. Updated manually via Supabase table editor. |
 | **Kanban board** | The task view inside MyHeadSpace. 3 columns: To Do, In Progress, Done. Maps to `tasks.status` field (`todo` / `in_progress` / `done`). |

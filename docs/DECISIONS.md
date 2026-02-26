@@ -109,7 +109,7 @@ Defaults:
 - Logged-in: 20 prompts/day
 - Anonymous: 5 prompts/day
 
-Quota is enforced server-side via `consume_agent_quota` RPC before any OpenAI call.
+Quota is enforced server-side via `consume_agent_quota` RPC before any Gemini call.
 
 ---
 
@@ -123,8 +123,9 @@ Quota is enforced server-side via `consume_agent_quota` RPC before any OpenAI ca
 
 ## G) Model Strategy
 
-- Use a cost-efficient OpenAI model as default.
-- Keep responses concise: enforce `max_tokens` via `AGENT_MAX_OUTPUT_TOKENS` env var.
+- Use Google Gemini as the AI provider.
+- Chat model: `gemini-2.0-flash`. Embedding model: `text-embedding-004` (768 dims).
+- Keep responses concise: enforce `maxOutputTokens` via `AGENT_MAX_OUTPUT_TOKENS` env var.
 - Default: `AGENT_MAX_OUTPUT_TOKENS` = 400, `AGENT_TOP_K` = 8
 
 ---

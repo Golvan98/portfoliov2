@@ -1,6 +1,6 @@
 # Claude Code Entry — Read Order & Authority
 
-This repo builds **Gilvin Portfolio v2** (Next.js + Supabase + OpenAI + RAG-lite).
+This repo builds **Gilvin Portfolio v2** (Next.js + Supabase + Gemini + RAG-lite).
 
 ## Authority Rules (must obey)
 - **DECISIONS.md is the single source of truth.**

@@ -1,4 +1,4 @@
-# Recruiter Agent (OpenAI + RAG-lite)
+# Recruiter Agent (Gemini + RAG-lite)
 
 ## Endpoint
 
@@ -14,10 +14,10 @@ Body: { message: string }
 1. **Enforce quota (hybrid)**
    - If user is logged in → check `agent_usage_user_daily` via `consume_agent_quota` RPC
    - If anonymous → check `agent_usage_ip_daily` via `consume_agent_quota` RPC (hashed IP)
-   - If quota exceeded → return 429 with remaining = 0, do NOT call OpenAI
+   - If quota exceeded → return 429 with remaining = 0, do NOT call Gemini
 
 2. **Embed the user question**
-   - Call OpenAI embeddings API with the user's message → `q_embedding`
+   - Call Gemini embeddings API (`text-embedding-004`) with the user's message → `q_embedding`
 
 3. **Similarity search**
    - Query `knowledge_chunks` via pgvector cosine distance
@@ -109,3 +109,5 @@ Inline citations in the answer body:
 - No answer without source support.
 - Out-of-scope questions get a polite redirect, not a hallucinated answer.
 - Max output tokens enforced via `AGENT_MAX_OUTPUT_TOKENS` env var (default: 400).
+- Chat model: `gemini-2.0-flash` via `@google/generative-ai` SDK.
+- Embedding model: `text-embedding-004` (768 dimensions).

@@ -2,31 +2,18 @@ import { createHash } from "crypto"
 import { NextResponse } from "next/server"
 import { createServiceRoleClient } from "@/lib/supabase/server"
 import { chunkContent } from "@/lib/rag/chunk"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex")
 }
 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
+const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" })
+
 async function embedText(text: string): Promise<number[]> {
-  const res = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input: text,
-    }),
-  })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`OpenAI embedding failed (${res.status}): ${body}`)
-  }
-
-  const data = await res.json()
-  return data.data[0].embedding
+  const result = await embeddingModel.embedContent(text)
+  return result.embedding.values
 }
 
 export async function POST(request: Request) {

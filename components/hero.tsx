@@ -8,7 +8,7 @@ import { ArrowDown, Sparkles } from "lucide-react"
 const techStack = [
   "Next.js",
   "Supabase",
-  "OpenAI",
+  "Gemini",
   "Python",
   "TypeScript",
   "pgvector",

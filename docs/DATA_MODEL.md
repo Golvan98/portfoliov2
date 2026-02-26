@@ -1,7 +1,7 @@
 # Data Model (Supabase)
 
 ## Important Notes
-- Embeddings use pgvector. Vector dimension is **1536** (OpenAI `text-embedding-3-small` or `text-embedding-ada-002`).
+- Embeddings use pgvector. Vector dimension is **768** (Google Gemini `text-embedding-004`).
 - If you change the embedding model, update the vector dimension here and recreate the index.
 - All UUIDs use `gen_random_uuid()` as default.
 - All timestamps use `timestamptz default now()`.
@@ -109,7 +109,7 @@ knowledge_chunks
   chunk_index  int not null
   chunk_text   text not null
   chunk_hash   text not null
-  embedding    vector(1536) not null
+  embedding    vector(768) not null
   created_at   timestamptz default now()
   updated_at   timestamptz default now()
 ```

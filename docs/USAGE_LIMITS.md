@@ -11,7 +11,7 @@
 
 ## Required RPC: consume_agent_quota
 
-This function MUST be called server-side before any OpenAI call.
+This function MUST be called server-side before any Gemini call.
 
 ### Signature
 
