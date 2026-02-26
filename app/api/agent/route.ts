@@ -7,15 +7,26 @@ function hashIP(ip: string): string {
   return createHash("sha256").update(ip).digest("hex")
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
-const embeddingModel = genAI.getGenerativeModel(
-  { model: "text-embedding-004" },
-  { apiVersion: "v1" }
-)
-
 async function embedText(text: string): Promise<number[]> {
-  const result = await embeddingModel.embedContent(text)
-  return result.embedding.values
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: { parts: [{ text }] },
+        outputDimensionality: 768,
+      }),
+    }
+  )
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Embedding failed (${res.status}): ${body}`)
+  }
+
+  const data = await res.json()
+  return data.embedding.values
 }
 
 export async function POST(request: Request) {
@@ -119,6 +130,7 @@ ${sourcesText}`
     // 7. Call Gemini chat completion
     const maxTokens = parseInt(process.env.AGENT_MAX_OUTPUT_TOKENS ?? "400")
 
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
     const chatModel = genAI.getGenerativeModel({
       model: "gemini-2.0-flash",
       systemInstruction: systemPrompt,

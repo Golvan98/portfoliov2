@@ -2,21 +2,31 @@ import { createHash } from "crypto"
 import { NextResponse } from "next/server"
 import { createServiceRoleClient } from "@/lib/supabase/server"
 import { chunkContent } from "@/lib/rag/chunk"
-import { GoogleGenerativeAI } from "@google/generative-ai"
 
 function sha256(text: string): string {
   return createHash("sha256").update(text).digest("hex")
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
-const embeddingModel = genAI.getGenerativeModel(
-  { model: "text-embedding-004" },
-  { apiVersion: "v1" }
-)
-
 async function embedText(text: string): Promise<number[]> {
-  const result = await embeddingModel.embedContent(text)
-  return result.embedding.values
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${process.env.GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: { parts: [{ text }] },
+        outputDimensionality: 768,
+      }),
+    }
+  )
+
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Gemini embedding failed (${res.status}): ${body}`)
+  }
+
+  const data = await res.json()
+  return data.embedding.values
 }
 
 export async function POST(request: Request) {
