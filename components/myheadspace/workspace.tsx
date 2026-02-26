@@ -130,7 +130,8 @@ export function Workspace({
       .from("categories")
       .insert({ owner_id: userId!, name })
     if (error) {
-      toast.error("Failed to create category")
+      console.error("createCategory error:", error)
+      toast.error(`Failed to create category: ${error.message}`)
       return
     }
     await refetchCategories()
@@ -172,7 +173,8 @@ export function Workspace({
       .select()
       .single()
     if (error || !data) {
-      toast.error("Failed to create project")
+      console.error("createProject error:", error)
+      toast.error(`Failed to create project: ${error?.message ?? "unknown"}`)
       return
     }
     await logActivity({
