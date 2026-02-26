@@ -88,6 +88,12 @@ export function Navbar() {
 
           {/* Center nav links -- desktop */}
           <div className="hidden items-center gap-8 md:flex">
+            <Link
+              href="/myheadspace"
+              className="text-sm font-semibold text-primary transition-colors hover:text-primary/80"
+            >
+              MyHeadSpace
+            </Link>
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -184,6 +190,13 @@ export function Navbar() {
         {mobileOpen && (
           <div className="border-t border-border bg-background/95 backdrop-blur-xl md:hidden">
             <div className="flex flex-col gap-1 px-6 py-4">
+              <Link
+                href="/myheadspace"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-muted"
+              >
+                MyHeadSpace
+              </Link>
               {navLinks.map((link) => (
                 <a
                   key={link.label}
