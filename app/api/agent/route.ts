@@ -8,7 +8,7 @@ function hashIP(ip: string): string {
 }
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
-const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" })
+const embeddingModel = genAI.getGenerativeModel({ model: "models/text-embedding-004" })
 
 async function embedText(text: string): Promise<number[]> {
   const result = await embeddingModel.embedContent(text)
