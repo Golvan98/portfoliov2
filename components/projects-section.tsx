@@ -10,7 +10,7 @@ const projects: ProjectData[] = [
     bgTint: "#f5f3ff",
     description:
       "An end-to-end video pipeline that ingests raw footage, runs object detection and scene segmentation, and surfaces highlights through a clean web dashboard.",
-    techStack: ["Python", "FastAPI", "React", "PostgreSQL", "OpenCV"],
+    techStack: ["Python", "FastAPI", "FFmpeg", "React", "PostgreSQL", "Docker", "OpenCV", "Redis", "Whisper", "Cloudflare", "Cloudflare R2 (S3)", "Next.js"],
   },
   {
     title: "StudySpring",
@@ -23,7 +23,7 @@ const projects: ProjectData[] = [
     techStack: ["Next.js", "Supabase", "Tailwind", "TypeScript"],
   },
   {
-    title: "MyHeadSpace",
+    title: "MyHeadSpace 2.0",
     tag: "Productivity \u00b7 Full-stack",
     tagLabel: "Productivity \u00b7 Full-stack",
     accent: "#7c3aed",
