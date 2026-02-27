@@ -169,6 +169,16 @@ ${sourcesText}`
       chunk_index: c.chunk_index,
     }))
 
+    // 9. Save chat history for authenticated users
+    if (user) {
+      try {
+        await serviceClient.from("agent_chat_history").insert([
+          { user_id: user.id, role: "user", content: message.trim(), sources: [] },
+          { user_id: user.id, role: "assistant", content: answer, sources },
+        ])
+      } catch { /* non-blocking */ }
+    }
+
     const testingMode = process.env.TESTING_MODE === "on"
     return NextResponse.json({ answer, sources: testingMode ? sources : [], remaining })
   } catch (err) {

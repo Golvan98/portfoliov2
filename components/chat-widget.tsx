@@ -42,19 +42,42 @@ export function ChatWidget() {
   const [authOpen, setAuthOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  // Auth state
+  // Auth state + load chat history for logged-in users
   useEffect(() => {
     const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => setUser(user))
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      if (user) loadHistory(user.id)
+    })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) loadHistory(session.user.id)
     })
 
     return () => subscription.unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function loadHistory(userId: string) {
+    const { data } = await createClient()
+      .from("agent_chat_history")
+      .select("role, content, sources")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true })
+      .limit(20)
+    if (!data || data.length === 0) return
+    const loaded: Message[] = data.map((row, i) => ({
+      id: i + 1,
+      role: row.role === "user" ? "user" : "agent",
+      text: row.content,
+      sources: row.sources?.length ? row.sources : undefined,
+    }))
+    setMessages([starterMessage, ...loaded])
+    setIdCounter(loaded.length + 1)
+  }
 
   // Scroll to bottom on new messages
   useEffect(() => {
