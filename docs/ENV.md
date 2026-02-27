@@ -11,9 +11,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-## Gemini (server only — never expose to client)
+## Gemini (server only — used for embeddings only)
 ```
 GEMINI_API_KEY=
+```
+
+## Groq (server only — used for agent chat completion)
+```
+GROQ_API_KEY=
 ```
 
 ## Chunking (used by embedding pipeline)
@@ -33,5 +38,6 @@ AGENT_ANON_DAILY_LIMIT=5
 
 ## Notes
 - `SUPABASE_SERVICE_ROLE_KEY` is used only in server-side routes (`/api/agent`, embedding job). Never import in client components.
-- `GEMINI_API_KEY` is server-only. Never import in client components.
+- `GEMINI_API_KEY` is server-only, used for embeddings. Never import in client components.
+- `GROQ_API_KEY` is server-only, used for agent chat completion. Never import in client components.
 - All `NEXT_PUBLIC_*` vars are safe for client-side Supabase initialization.

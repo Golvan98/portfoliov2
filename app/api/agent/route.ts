@@ -1,7 +1,7 @@
 import { createHash } from "crypto"
 import { NextResponse } from "next/server"
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server"
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import Groq from "groq-sdk"
 
 function hashIP(ip: string): string {
   return createHash("sha256").update(ip).digest("hex")
@@ -128,22 +128,22 @@ RULES (must follow):
 SOURCES:
 ${sourcesText}`
 
-    // 7. Call Gemini chat completion
+    // 7. Call Groq chat completion
     const maxTokens = parseInt(process.env.AGENT_MAX_OUTPUT_TOKENS ?? "400")
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY ?? "")
-    const chatModel = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
-      systemInstruction: systemPrompt,
-    })
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" })
 
-    const completionResult = await chatModel.generateContent({
-      contents: [{ role: "user", parts: [{ text: message.trim() }] }],
-      generationConfig: { maxOutputTokens: maxTokens },
+    const completion = await groq.chat.completions.create({
+      model: "llama-3.1-8b-instant",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message.trim() },
+      ],
+      max_tokens: maxTokens,
     })
 
     const answer =
-      completionResult.response.text() ??
+      completion.choices[0]?.message?.content ??
       "I couldn't generate a response."
 
     // 8. Build sources array for the client

@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC, Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, `gemini-1.5-flash` answer generation |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC, Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), message history, typing indicator, source citations (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. Glass wall RLS still broken. See Known Bugs below. |
 
@@ -72,13 +72,14 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 ### Infrastructure
 - **`middleware.ts`** — Supabase auth token refresh on every request
 - **`next.config.mjs`** — `ignoreBuildErrors: true`, `images.unoptimized: true`
-- **`package.json`** — Next.js 16.1.6, React 19.2.4, @google/generative-ai 0.24.1, @supabase/ssr 0.8.0, Tailwind 4.2.0, 60+ shadcn/ui components
+- **`package.json`** — Next.js 16.1.6, React 19.2.4, groq-sdk, @supabase/ssr 0.8.0, Tailwind 4.2.0, 60+ shadcn/ui components
 
 ### Env Vars (`.env.local`)
 - ✅ `NEXT_PUBLIC_SUPABASE_URL` — set
 - ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY` — set
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` — set
-- ✅ `GEMINI_API_KEY` — set
+- ✅ `GEMINI_API_KEY` — set (used for embeddings only)
+- ✅ `GROQ_API_KEY` — set (used for agent chat completion)
 - ✅ `EMBED_SECRET` — set
 - ✅ Chunking config (`CHUNK_MIN_CHARS_BEFORE_SPLIT`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`) — set
 - ✅ Agent config (`AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TOP_K`, `AGENT_USER_DAILY_LIMIT`, `AGENT_ANON_DAILY_LIMIT`) — set
@@ -92,10 +93,12 @@ The following intentional changes were made via recent commits and differ from A
 
 | What | Docs say | Code uses | Reason |
 |---|---|---|---|
-| Chat model | `gemini-2.0-flash` | `gemini-1.5-flash` | Avoid rate limits (commit c907a3e) |
+| Chat model | `gemini-2.0-flash` | Groq `llama-3.1-8b-instant` | Gemini free tier chat quota too restrictive; Groq provides generous free tier for chat |
 | Embedding model | `text-embedding-004` | `gemini-embedding-001` | Avoid 404 / compatibility (commits ce54695, b36fc8f, 988c13f) |
 
-Both embedding endpoints (`/api/agent` and `/api/embed`) use Gemini REST API directly (not the SDK's `embedContent`) with `outputDimensionality: 768`, which matches the pgvector column dimension.
+**Chat completion** uses Groq SDK (`groq-sdk`) with `llama-3.1-8b-instant`. The `@google/generative-ai` SDK has been removed from the project.
+
+**Embeddings** still use Gemini REST API directly (not the SDK) with `gemini-embedding-001` and `outputDimensionality: 768`, which matches the pgvector column dimension. Gemini's embedding free tier has generous limits. No DB changes needed — vector dimensions stay at 768.
 
 ---
 
@@ -114,7 +117,7 @@ Both embedding endpoints (`/api/agent` and `/api/embed`) use Gemini REST API dir
 
 4. **Stale test OAuth credentials in `.env.local`** — Lines `testgclientid` and `testgsecret` are unused test values that should be removed for hygiene.
 
-5. **Vercel env vars may be stale.** `GEMINI_API_KEY` and `EMBED_SECRET` are set locally but may not be set in Vercel's environment. The deployed site's agent/embed endpoints will fail if these aren't mirrored to Vercel.
+5. **Vercel env vars may be stale.** `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set locally but may not be set in Vercel's environment. The deployed site's agent/embed endpoints will fail if these aren't mirrored to Vercel.
 
 ### Low — Nice to Have
 
@@ -146,7 +149,7 @@ Both embedding endpoints (`/api/agent` and `/api/embed`) use Gemini REST API dir
 4. Trigger embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: <secret>"`
 
 **To sync Vercel deployment:**
-5. Ensure `GEMINI_API_KEY` and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
+5. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
 
 **Cleanup:**
 6. Remove `testgclientid` and `testgsecret` lines from `.env.local`
