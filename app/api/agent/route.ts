@@ -169,12 +169,19 @@ ${sourcesText}`
       chunk_index: c.chunk_index,
     }))
 
-    // 9. Save chat history for authenticated users
+    // 9. Save chat history
     if (user) {
       try {
         await serviceClient.from("agent_chat_history").insert([
           { user_id: user.id, role: "user", content: message.trim(), sources: [] },
           { user_id: user.id, role: "assistant", content: answer, sources },
+        ])
+      } catch { /* non-blocking */ }
+    } else {
+      try {
+        await serviceClient.from("anon_chat_history").insert([
+          { hashed_ip: ipHash, role: "user", content: message.trim(), sources: [] },
+          { hashed_ip: ipHash, role: "assistant", content: answer, sources },
         ])
       } catch { /* non-blocking */ }
     }

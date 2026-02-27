@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Saves user+assistant messages to `agent_chat_history` for authenticated users. `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
@@ -43,7 +43,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`not-found.tsx`** — Custom 404 with "Back to portfolio" button
 
 ### API Routes
-- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → embed question → vector search → LLM answer with sources → save to `agent_chat_history` (authenticated users)
+- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → embed question → vector search → LLM answer with sources → save to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous)
 - **`/api/embed`** — Background embedding job: finds `needs_embedding=true` docs, chunks, embeds via Gemini (`gemini-embedding-001`, 768 dims), stores vectors
 
 ### Key Components
@@ -141,8 +141,8 @@ The following intentional changes were made via recent commits and differ from A
    CREATE POLICY "task_notes_public_read" ON public.task_notes FOR SELECT USING (true);
    ```
 
-**Create agent_chat_history table (required for persistent chat):**
-2. Run the CREATE TABLE + RLS SQL for `agent_chat_history` in Supabase SQL editor (provided in chat).
+**Create chat history tables (required for persistent chat + anonymous logging):**
+2. Run the CREATE TABLE + RLS SQL for `agent_chat_history` and `anon_chat_history` in Supabase SQL editor (provided in chat).
 
 **RAG knowledge doc updates (run in Supabase SQL editor):**
 3. Update "About Gilvin Zalsos" doc — new title: Full Stack Developer (Backend-focused) · DevOps Engineer · AI Solutions. Set `needs_embedding = true`.
@@ -178,12 +178,16 @@ The following intentional changes were made via recent commits and differ from A
    - Server-side: insert user + assistant messages into `agent_chat_history` after each successful response
    - Client-side: load last 20 messages from `agent_chat_history` on mount when logged in
    - Anonymous users unaffected (no history)
+6. **`TBD`** — `feat: anonymous chat logging via anon_chat_history`
+   - Unauthenticated user+assistant messages saved to `anon_chat_history` keyed by hashed IP
+   - Service role only — no public read/write
 
 ### SQL provided (not yet run):
 - UPDATE `About Gilvin Zalsos` knowledge doc with updated title
 - UPDATE `Education — Gilvin Zalsos` knowledge doc with high school + capstone details
 - INSERT `Automated Needs Assessment Survey` into `portfolio_projects` + `knowledge_docs`
 - CREATE TABLE `agent_chat_history` with RLS (users read own history, service role inserts)
+- CREATE TABLE `anon_chat_history` with RLS (service role only, no public access)
 
 ---
 
