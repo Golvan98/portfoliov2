@@ -181,6 +181,8 @@ The following intentional changes were made via recent commits and differ from A
 6. **`fe63806`** — `feat: anonymous chat logging via anon_chat_history`
    - Unauthenticated user+assistant messages saved to `anon_chat_history` keyed by hashed IP
    - Service role only — no public read/write
+7. **`48fd215`** — `fix: wire hero "Chat with portfolio" button to open chat widget`
+   - Hero button dispatches custom `open-chat-widget` event; ChatWidget listens and sets `open = true`
 
 ### SQL provided (not yet run):
 - UPDATE `About Gilvin Zalsos` knowledge doc with updated title
