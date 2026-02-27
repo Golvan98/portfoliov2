@@ -178,7 +178,7 @@ The following intentional changes were made via recent commits and differ from A
    - Server-side: insert user + assistant messages into `agent_chat_history` after each successful response
    - Client-side: load last 20 messages from `agent_chat_history` on mount when logged in
    - Anonymous users unaffected (no history)
-6. **`TBD`** — `feat: anonymous chat logging via anon_chat_history`
+6. **`fe63806`** — `feat: anonymous chat logging via anon_chat_history`
    - Unauthenticated user+assistant messages saved to `anon_chat_history` keyed by hashed IP
    - Service role only — no public read/write
 
