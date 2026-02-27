@@ -27,6 +27,12 @@ const accentMap: Record<string, { badge: string; button: string; preview: string
     preview: "bg-[#f0f9ff] dark:bg-[#0ea5e9]/10",
     text: "text-[#0ea5e9] dark:text-[#38bdf8]",
   },
+  "#d97706": {
+    badge: "bg-[#fffbeb] text-[#d97706] border-[#d97706]/20 dark:bg-[#d97706]/10 dark:text-[#fbbf24] dark:border-[#d97706]/30",
+    button: "bg-[#d97706] hover:bg-[#d97706]/90 text-white",
+    preview: "bg-[#fffbeb] dark:bg-[#d97706]/10",
+    text: "text-[#d97706] dark:text-[#fbbf24]",
+  },
 }
 
 export function ProjectCard({ project }: { project: ProjectData }) {

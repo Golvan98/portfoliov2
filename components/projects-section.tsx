@@ -33,6 +33,16 @@ const projects: ProjectData[] = [
     techStack: ["Next.js", "Supabase", "pgvector", "Gemini"],
     demoUrl: "https://portfoliov2-three-liard.vercel.app/myheadspace",
   },
+  {
+    title: "Automated Needs Assessment Survey",
+    tag: "Health \u00b7 Academic",
+    tagLabel: "Health \u00b7 Academic",
+    accent: "#d97706",
+    bgTint: "#fffbeb",
+    description:
+      "A mental health survey questionnaire system built for MSU-IIT that automated school counselors\u2019 needs assessments. Collected student inputs via multi-page survey forms and visualized demographic insights through pie charts and graphs for guidance counselors.",
+    techStack: ["PHP", "MySQL", "JavaScript", "HTML/CSS"],
+  },
 ]
 
 export function ProjectsSection() {
