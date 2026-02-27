@@ -7,7 +7,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ## Current Status
 
-**Last updated:** February 27, 2026
+**Last updated:** February 28, 2026
 **Deployed at:** https://portfoliov2-three-liard.vercel.app
 **GitHub:** https://github.com/Golvan98/portfoliov2
 **Supabase project ID:** liqlzqrylfhuuxqbyjho
@@ -26,10 +26,10 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 6 — MyHeadSpace Admin CRUD | ✅ Done | Full 3-column workspace: sidebar (categories/projects), kanban board (todo/in_progress/done), task details + notes panel. All CRUD operations functional for admin. |
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
-| Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC, Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation |
-| Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), message history, typing indicator, source citations (max 4), quota display, sign-in nudge for anon users |
-| Phase 12 — Polish | 🟡 Partial | Custom 404 page done. Glass wall RLS still broken. See Known Bugs below. |
+| Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. |
+| Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), message history, typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
+| Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
 ---
 
@@ -43,16 +43,16 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`not-found.tsx`** — Custom 404 with "Back to portfolio" button
 
 ### API Routes
-- **`/api/agent`** — Full RAG pipeline: quota check → embed question → vector search → LLM answer with sources
+- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → embed question → vector search → LLM answer with sources
 - **`/api/embed`** — Background embedding job: finds `needs_embedding=true` docs, chunks, embeds via Gemini (`gemini-embedding-001`, 768 dims), stores vectors
 
 ### Key Components
-- **`workspace.tsx`** (597 lines) — Full MyHeadSpace CRUD: categories, projects, tasks, task_notes. Admin guard (toast on unauthorized mutation). RAG sync on every CRUD op (non-blocking).
+- **`workspace.tsx`** (~640 lines) — Full MyHeadSpace CRUD: categories, projects, tasks, task_notes. Admin guard (toast on unauthorized mutation). RAG sync on every CRUD op (non-blocking). Project docs include task status summaries; parent project re-synced on task create/delete/status change.
 - **`kanban-board.tsx`** (345 lines) — 3-column kanban (To Do / In Progress / Done) with inline editing
 - **`sidebar.tsx`** (422 lines) — Category tree with expandable projects, inline editing
 - **`task-card.tsx`** (155 lines) — Individual task card with status dropdown, edit, delete
 - **`task-details.tsx`** (115 lines) — Right panel showing task info and notes textarea
-- **`chat-widget.tsx`** (330 lines) — Floating agent UI with message history, source citations, quota display, auth modal trigger
+- **`chat-widget.tsx`** (~335 lines) — Floating agent UI with message history, source citations (relative dates via `timeAgo()`), quota display, auth modal trigger
 - **`activity-feed.tsx`** — Realtime subscription on `public_activity` inserts for live updates
 - **`activity-list.tsx`** (124 lines) — Paginated activity list with colored action dots, 30s timestamp refresh
 - **`auth-modal.tsx`** (72 lines) — Google OAuth trigger with quota tier explanation
@@ -95,6 +95,8 @@ The following intentional changes were made via recent commits and differ from A
 |---|---|---|---|
 | Chat model | `gemini-2.0-flash` | Groq `llama-3.1-8b-instant` | Gemini free tier chat quota too restrictive; Groq provides generous free tier for chat |
 | Embedding model | `text-embedding-004` | `gemini-embedding-001` | Avoid 404 / compatibility (commits ce54695, b36fc8f, 988c13f) |
+| Agent system prompt | Strict rules, hard refusals | Third-person voice, conversational, no hard refusals | Better UX — answers casual questions naturally, prioritizes recent activity |
+| Agent quota | Enforced for all users | Bypassed for admin (gilvinsz@gmail.com) | Admin should have unlimited access to own portfolio agent |
 
 **Chat completion** uses Groq SDK (`groq-sdk`) with `llama-3.1-8b-instant`. The `@google/generative-ai` SDK has been removed from the project.
 
@@ -109,23 +111,21 @@ The following intentional changes were made via recent commits and differ from A
 1. **Glass wall RLS mismatch — non-admin visitors see empty workspace.**
    `/myheadspace/page.tsx` fetches categories and projects using `createClient()` (session-scoped, respects RLS). The RLS policies on `categories`, `projects`, `tasks`, and `task_notes` are all `admin_only FOR ALL` — meaning anonymous and non-admin users get zero rows back. The workspace renders but is completely empty for visitors. **Fix:** Add public SELECT policies on these 4 tables in Supabase SQL editor, keeping INSERT/UPDATE/DELETE as admin-only.
 
-2. **RAG seed data likely not loaded.** The `portfolio_projects`, `work_experience`, and `personal_info` seed SQLs (DATA_MODEL.md) require `app_admins` to be seeded first. If these haven't been run, the agent has no knowledge base to search — it will return "(No sources found)" for every question. **Status unknown — requires checking Supabase tables.**
-
 ### Medium — Should Fix Before Production
 
-3. **`ignoreBuildErrors: true` in `next.config.mjs`** — Hides TypeScript errors during build. Should be set to `false` and any build errors fixed.
+2. **`ignoreBuildErrors: true` in `next.config.mjs`** — Hides TypeScript errors during build. Should be set to `false` and any build errors fixed.
 
-4. **Stale test OAuth credentials in `.env.local`** — Lines `testgclientid` and `testgsecret` are unused test values that should be removed for hygiene.
+3. **Stale test OAuth credentials in `.env.local`** — Lines `testgclientid` and `testgsecret` are unused test values that should be removed for hygiene.
 
-5. **Vercel env vars may be stale.** `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set locally but may not be set in Vercel's environment. The deployed site's agent/embed endpoints will fail if these aren't mirrored to Vercel.
+4. **Vercel env vars may be stale.** `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set locally but may not be set in Vercel's environment. The deployed site's agent/embed endpoints will fail if these aren't mirrored to Vercel.
 
 ### Low — Nice to Have
 
-6. **ChatWidget initial quota unknown** — Quota remaining is only fetched after the first agent response. Initial state shows nothing until first interaction.
+5. **ChatWidget initial quota unknown** — Quota remaining is only fetched after the first agent response. Initial state shows nothing until first interaction.
 
-7. **No drag-and-drop on kanban** — Task status changes are via kebab menu only (documented as intentional for MVP in BACKLOG.md).
+6. **No drag-and-drop on kanban** — Task status changes are via kebab menu only (documented as intentional for MVP in BACKLOG.md).
 
-8. **Middleware deprecation warning** — Next.js warns about deprecated middleware pattern (should use "proxy"). Functional but should be migrated eventually.
+7. **Middleware deprecation warning** — Next.js warns about deprecated middleware pattern (should use "proxy"). Functional but should be migrated eventually.
 
 ---
 
@@ -140,20 +140,39 @@ The following intentional changes were made via recent commits and differ from A
    CREATE POLICY "task_notes_public_read" ON public.task_notes FOR SELECT USING (true);
    ```
 
-**To make agent + RAG functional (if seed data not loaded):**
-2. Verify `app_admins` is seeded (Gilvin's `user_id` after first Google login)
-3. Run RAG seed SQLs in Supabase SQL editor:
-   - `portfolio_projects` seed (DATA_MODEL.md)
-   - `work_experience` seed (DATA_MODEL.md)
-   - `personal_info` seed (DATA_MODEL.md)
-4. Trigger embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: <secret>"`
+**RAG knowledge doc updates (run in Supabase SQL editor):**
+2. Update "About Gilvin Zalsos" doc — new title: Full Stack Developer (Backend-focused) · DevOps Engineer · AI Solutions. Set `needs_embedding = true`.
+3. Update "Education — Gilvin Zalsos" doc — add MSU-IIT IDS high school, capstone project (Automated Needs Assessment Survey, PHP/MySQL, 2018). Set `needs_embedding = true`.
+4. Insert "Automated Needs Assessment Survey" into `portfolio_projects` and corresponding `knowledge_docs` row. Set `needs_embedding = true`.
+5. Trigger re-embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: 461d55ba99cf7857075d1a79ee705c1b2ac385c797e02d5495442883a5f43722"`
 
 **To sync Vercel deployment:**
-5. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
+6. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
 
 **Cleanup:**
-6. Remove `testgclientid` and `testgsecret` lines from `.env.local`
-7. Set `ignoreBuildErrors: false` in `next.config.mjs` and fix any build errors
+7. Remove `testgclientid` and `testgsecret` lines from `.env.local`
+8. Set `ignoreBuildErrors: false` in `next.config.mjs` and fix any build errors
+
+---
+
+## Session Log — February 28, 2026
+
+### Commits pushed today:
+1. **`58a56d9`** — `feat: expand RAG sources, tune agent prompt, fix citation dates`
+   - `buildProjectContent` now includes task status summary (todo/in-progress/done counts)
+   - Parent project knowledge doc re-synced on task create, delete, and status change
+   - Agent system prompt rewritten: third-person voice ("Gilvin is…"), no hard refusals, prioritizes recent activity
+   - Chat widget citations: replaced `formatDate()` with `timeAgo()`, null/undefined guard prevents "Invalid Date"
+2. **`af94d5b`** — `feat: add Automated Needs Assessment Survey as 4th project card`
+   - New amber accent color (`#d97706`) in `project-card.tsx`
+   - 4th card in `projects-section.tsx`: PHP/MySQL mental health survey for MSU-IIT (no demo/code URLs)
+3. **`502a451`** — `feat: bypass agent quota for admin user`
+   - If authenticated user email is `gilvinsz@gmail.com`, skip `consume_agent_quota` RPC entirely
+
+### SQL provided (not yet run):
+- UPDATE `About Gilvin Zalsos` knowledge doc with updated title
+- UPDATE `Education — Gilvin Zalsos` knowledge doc with high school + capstone details
+- INSERT `Automated Needs Assessment Survey` into `portfolio_projects` + `knowledge_docs`
 
 ---
 
