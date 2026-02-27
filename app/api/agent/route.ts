@@ -169,7 +169,8 @@ ${sourcesText}`
       chunk_index: c.chunk_index,
     }))
 
-    return NextResponse.json({ answer, sources, remaining })
+    const testingMode = process.env.TESTING_MODE === "on"
+    return NextResponse.json({ answer, sources: testingMode ? sources : [], remaining })
   } catch (err) {
     console.error("Agent route error:", err)
     return NextResponse.json(

@@ -36,6 +36,12 @@ AGENT_USER_DAILY_LIMIT=20
 AGENT_ANON_DAILY_LIMIT=5
 ```
 
+## Testing (used by /api/agent)
+```
+TESTING_MODE=on
+```
+When `on`, source citations are returned in the agent response and displayed in the chat widget. When `off` or unset, the sources array is returned empty — citations are hidden from visitors. Set to `on` for local dev; leave `off` or unset in production (Vercel).
+
 ## Notes
 - `SUPABASE_SERVICE_ROLE_KEY` is used only in server-side routes (`/api/agent`, embedding job). Never import in client components.
 - `GEMINI_API_KEY` is server-only, used for embeddings. Never import in client components.
