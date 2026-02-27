@@ -27,8 +27,8 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. |
-| Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), message history, typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Saves user+assistant messages to `agent_chat_history` for authenticated users. `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
 ---
@@ -43,7 +43,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`not-found.tsx`** — Custom 404 with "Back to portfolio" button
 
 ### API Routes
-- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → embed question → vector search → LLM answer with sources
+- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → embed question → vector search → LLM answer with sources → save to `agent_chat_history` (authenticated users)
 - **`/api/embed`** — Background embedding job: finds `needs_embedding=true` docs, chunks, embeds via Gemini (`gemini-embedding-001`, 768 dims), stores vectors
 
 ### Key Components
@@ -52,7 +52,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`sidebar.tsx`** (422 lines) — Category tree with expandable projects, inline editing
 - **`task-card.tsx`** (155 lines) — Individual task card with status dropdown, edit, delete
 - **`task-details.tsx`** (115 lines) — Right panel showing task info and notes textarea
-- **`chat-widget.tsx`** (~335 lines) — Floating agent UI with message history, source citations (relative dates via `timeAgo()`), quota display, auth modal trigger
+- **`chat-widget.tsx`** (~365 lines) — Floating agent UI with persistent chat history (last 20 messages loaded on mount for logged-in users), source citations (relative dates via `timeAgo()`), quota display, auth modal trigger
 - **`activity-feed.tsx`** — Realtime subscription on `public_activity` inserts for live updates
 - **`activity-list.tsx`** (124 lines) — Paginated activity list with colored action dots, 30s timestamp refresh
 - **`auth-modal.tsx`** (72 lines) — Google OAuth trigger with quota tier explanation
@@ -81,6 +81,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - ✅ `GEMINI_API_KEY` — set (used for embeddings only)
 - ✅ `GROQ_API_KEY` — set (used for agent chat completion)
 - ✅ `EMBED_SECRET` — set
+- ✅ `TESTING_MODE` — set (`on` for local dev; when `off`/unset, source citations hidden from response)
 - ✅ Chunking config (`CHUNK_MIN_CHARS_BEFORE_SPLIT`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`) — set
 - ✅ Agent config (`AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TOP_K`, `AGENT_USER_DAILY_LIMIT`, `AGENT_ANON_DAILY_LIMIT`) — set
 - ⚠️ `testgclientid` and `testgsecret` — stale test values still present (should be removed)
@@ -140,18 +141,21 @@ The following intentional changes were made via recent commits and differ from A
    CREATE POLICY "task_notes_public_read" ON public.task_notes FOR SELECT USING (true);
    ```
 
+**Create agent_chat_history table (required for persistent chat):**
+2. Run the CREATE TABLE + RLS SQL for `agent_chat_history` in Supabase SQL editor (provided in chat).
+
 **RAG knowledge doc updates (run in Supabase SQL editor):**
-2. Update "About Gilvin Zalsos" doc — new title: Full Stack Developer (Backend-focused) · DevOps Engineer · AI Solutions. Set `needs_embedding = true`.
-3. Update "Education — Gilvin Zalsos" doc — add MSU-IIT IDS high school, capstone project (Automated Needs Assessment Survey, PHP/MySQL, 2018). Set `needs_embedding = true`.
-4. Insert "Automated Needs Assessment Survey" into `portfolio_projects` and corresponding `knowledge_docs` row. Set `needs_embedding = true`.
-5. Trigger re-embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: 461d55ba99cf7857075d1a79ee705c1b2ac385c797e02d5495442883a5f43722"`
+3. Update "About Gilvin Zalsos" doc — new title: Full Stack Developer (Backend-focused) · DevOps Engineer · AI Solutions. Set `needs_embedding = true`.
+4. Update "Education — Gilvin Zalsos" doc — add MSU-IIT IDS high school, capstone project (Automated Needs Assessment Survey, PHP/MySQL, 2018). Set `needs_embedding = true`.
+5. Insert "Automated Needs Assessment Survey" into `portfolio_projects` and corresponding `knowledge_docs` row. Set `needs_embedding = true`.
+6. Trigger re-embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: 461d55ba99cf7857075d1a79ee705c1b2ac385c797e02d5495442883a5f43722"`
 
 **To sync Vercel deployment:**
-6. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
+7. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
 
 **Cleanup:**
-7. Remove `testgclientid` and `testgsecret` lines from `.env.local`
-8. Set `ignoreBuildErrors: false` in `next.config.mjs` and fix any build errors
+8. Remove `testgclientid` and `testgsecret` lines from `.env.local`
+9. Set `ignoreBuildErrors: false` in `next.config.mjs` and fix any build errors
 
 ---
 
@@ -168,11 +172,18 @@ The following intentional changes were made via recent commits and differ from A
    - 4th card in `projects-section.tsx`: PHP/MySQL mental health survey for MSU-IIT (no demo/code URLs)
 3. **`502a451`** — `feat: bypass agent quota for admin user`
    - If authenticated user email is `gilvinsz@gmail.com`, skip `consume_agent_quota` RPC entirely
+4. **`b946c54`** — `feat: add TESTING_MODE toggle to hide source citations in production`
+   - Sources array returned empty when `TESTING_MODE` is `off` or unset
+5. **`2c7966e`** — `feat: persistent chat history for logged-in users`
+   - Server-side: insert user + assistant messages into `agent_chat_history` after each successful response
+   - Client-side: load last 20 messages from `agent_chat_history` on mount when logged in
+   - Anonymous users unaffected (no history)
 
 ### SQL provided (not yet run):
 - UPDATE `About Gilvin Zalsos` knowledge doc with updated title
 - UPDATE `Education — Gilvin Zalsos` knowledge doc with high school + capstone details
 - INSERT `Automated Needs Assessment Survey` into `portfolio_projects` + `knowledge_docs`
+- CREATE TABLE `agent_chat_history` with RLS (users read own history, service role inserts)
 
 ---
 
