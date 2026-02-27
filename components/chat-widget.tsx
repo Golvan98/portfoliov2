@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { AuthModal } from "@/components/auth-modal"
 import { Sparkles, X, ArrowRight, LogIn } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { timeAgo } from "@/lib/time-ago"
 import type { User } from "@supabase/supabase-js"
 
 interface Source {
@@ -143,16 +144,11 @@ export function ChatWidget() {
   const showSignInNudge =
     !user && remaining !== null && remaining <= 2 && !quotaExceeded
 
-  function formatDate(dateStr: string): string {
-    try {
-      return new Date(dateStr).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    } catch {
-      return dateStr
-    }
+  function formatSourceDate(dateStr: string | null | undefined): string | null {
+    if (!dateStr) return null
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return null
+    return `updated ${timeAgo(dateStr)}`
   }
 
   return (
@@ -220,15 +216,18 @@ export function ChatWidget() {
                               arr.findIndex((x) => x.doc_id === s.doc_id) === i
                           )
                           .slice(0, 4)
-                          .map((s) => (
-                            <p
-                              key={`${s.doc_id}-${s.chunk_index}`}
-                              className="text-[10px] leading-tight text-muted-foreground"
-                            >
-                              From {s.title} (updated {formatDate(s.updated_at)}
-                              )
-                            </p>
-                          ))}
+                          .map((s) => {
+                            const date = formatSourceDate(s.updated_at)
+                            return (
+                              <p
+                                key={`${s.doc_id}-${s.chunk_index}`}
+                                className="text-[10px] leading-tight text-muted-foreground"
+                              >
+                                From {s.title}
+                                {date ? ` (${date})` : ""}
+                              </p>
+                            )
+                          })}
                       </div>
                     )}
                 </div>

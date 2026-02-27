@@ -63,6 +63,44 @@ export function Workspace({
     return projects.find((p) => p.id === projectId)?.title ?? ""
   }
 
+  async function getTaskSummary(
+    projectId: string
+  ): Promise<{ todo: number; in_progress: number; done: number }> {
+    const { data } = await createClient()
+      .from("tasks")
+      .select("status")
+      .eq("project_id", projectId)
+    const list = data ?? []
+    return {
+      todo: list.filter((t) => t.status === "todo").length,
+      in_progress: list.filter((t) => t.status === "in_progress").length,
+      done: list.filter((t) => t.status === "done").length,
+    }
+  }
+
+  async function syncProjectDoc(projectId: string) {
+    if (!userId) return
+    const project = projects.find((p) => p.id === projectId)
+    if (!project) return
+    try {
+      const taskSummary = await getTaskSummary(projectId)
+      const blob = buildProjectContent({
+        title: project.title,
+        categoryName: getCategoryName(project.category_id),
+        description: project.description,
+        updatedAt: new Date().toISOString(),
+        taskSummary,
+      })
+      await syncKnowledgeDoc({
+        sourceType: "project",
+        sourceId: projectId,
+        title: blob.title,
+        content: blob.content,
+        ownerId: userId,
+      })
+    } catch { /* non-blocking */ }
+  }
+
   // --- Data fetching ---
   async function refetchCategories() {
     const { data } = await createClient()
@@ -191,6 +229,7 @@ export function Workspace({
         categoryName: getCategoryName(categoryId),
         description: data.description,
         updatedAt: data.updated_at,
+        taskSummary: { todo: 0, in_progress: 0, done: 0 },
       })
       await syncKnowledgeDoc({
         sourceType: "project",
@@ -222,14 +261,16 @@ export function Workspace({
       entity_title: title,
       owner_id: userId!,
     })
-    // RAG sync
+    // RAG sync (includes task summary)
     try {
       const project = projects.find((p) => p.id === id)
+      const taskSummary = await getTaskSummary(id)
       const blob = buildProjectContent({
         title,
         categoryName: getCategoryName(project?.category_id ?? null),
         description: project?.description ?? null,
         updatedAt: now,
+        taskSummary,
       })
       await syncKnowledgeDoc({
         sourceType: "project",
@@ -333,6 +374,8 @@ export function Workspace({
         ownerId: userId!,
       })
     } catch { /* non-blocking */ }
+    // Re-sync parent project (task count changed)
+    await syncProjectDoc(activeProjectId)
     await fetchTasks(activeProjectId)
   }
 
@@ -410,6 +453,8 @@ export function Workspace({
           ownerId: userId!,
         })
       } catch { /* non-blocking */ }
+      // Re-sync parent project (task status summary changed)
+      await syncProjectDoc(task.project_id)
     }
     if (activeProjectId) await fetchTasks(activeProjectId)
   }
@@ -448,6 +493,8 @@ export function Workspace({
       for (const nid of noteIds) await deleteKnowledgeDoc("note", nid)
       await deleteKnowledgeDoc("task", id)
     } catch { /* non-blocking */ }
+    // Re-sync parent project (task count changed)
+    if (task?.project_id) await syncProjectDoc(task.project_id)
     if (selectedTaskId === id) setSelectedTaskId(null)
     if (activeProjectId) await fetchTasks(activeProjectId)
   }

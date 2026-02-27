@@ -75,15 +75,23 @@ export function buildProjectContent(p: {
   categoryName: string
   description: string | null
   updatedAt: string
+  taskSummary?: { todo: number; in_progress: number; done: number }
 }): { title: string; content: string } {
+  const lines = [
+    `Project: ${p.title}`,
+    `Category: ${p.categoryName}`,
+    `Description: ${p.description ?? ""}`,
+  ]
+  if (p.taskSummary) {
+    const { todo, in_progress, done } = p.taskSummary
+    lines.push(
+      `Tasks: ${todo + in_progress + done} total (${todo} to-do, ${in_progress} in progress, ${done} done)`
+    )
+  }
+  lines.push(`Updated: ${p.updatedAt}`)
   return {
     title: `Project: ${p.title}`,
-    content: [
-      `Project: ${p.title}`,
-      `Category: ${p.categoryName}`,
-      `Description: ${p.description ?? ""}`,
-      `Updated: ${p.updatedAt}`,
-    ].join("\n"),
+    content: lines.join("\n"),
   }
 }
 
