@@ -61,6 +61,13 @@ export function ChatWidget() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Listen for external "open-chat-widget" events (e.g. hero button)
+  useEffect(() => {
+    const handler = () => setOpen(true)
+    window.addEventListener("open-chat-widget", handler)
+    return () => window.removeEventListener("open-chat-widget", handler)
+  }, [])
+
   async function loadHistory(userId: string) {
     const { data } = await createClient()
       .from("agent_chat_history")

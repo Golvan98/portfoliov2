@@ -65,6 +65,7 @@ export function Hero() {
               variant="outline"
               size="lg"
               className="rounded-full border-border text-foreground hover:bg-muted dark:border-white/10 dark:text-slate-300 dark:hover:text-white"
+              onClick={() => window.dispatchEvent(new CustomEvent("open-chat-widget"))}
             >
               <Sparkles className="size-4" />
               Chat with portfolio
