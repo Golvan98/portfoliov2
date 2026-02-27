@@ -52,37 +52,42 @@ export async function POST(request: Request) {
     const ip = forwarded?.split(",")[0]?.trim() ?? "unknown"
     const ipHash = hashIP(ip)
 
-    // 3. Enforce quota via RPC (SECURITY DEFINER — bypasses RLS)
+    // 3. Enforce quota via RPC (bypass for admin)
+    const isAdmin = user?.email === "gilvinsz@gmail.com"
     const serviceClient = createServiceRoleClient()
-    const { data: quotaData, error: quotaErr } = await serviceClient.rpc(
-      "consume_agent_quota",
-      {
-        p_user_id: user?.id ?? null,
-        p_ip_hash: ipHash,
-        p_cost: 1,
-      }
-    )
+    let remaining = Infinity
 
-    if (quotaErr || !quotaData?.[0]) {
-      return NextResponse.json(
-        { error: "Quota check failed" },
-        { status: 500 }
-      )
-    }
-
-    if (!quotaData[0].allowed) {
-      return NextResponse.json(
+    if (!isAdmin) {
+      const { data: quotaData, error: quotaErr } = await serviceClient.rpc(
+        "consume_agent_quota",
         {
-          error: "quota_exceeded",
-          remaining: 0,
-          message:
-            "You have reached your daily limit. Sign in with Google for a higher quota.",
-        },
-        { status: 429 }
+          p_user_id: user?.id ?? null,
+          p_ip_hash: ipHash,
+          p_cost: 1,
+        }
       )
-    }
 
-    const remaining: number = quotaData[0].remaining
+      if (quotaErr || !quotaData?.[0]) {
+        return NextResponse.json(
+          { error: "Quota check failed" },
+          { status: 500 }
+        )
+      }
+
+      if (!quotaData[0].allowed) {
+        return NextResponse.json(
+          {
+            error: "quota_exceeded",
+            remaining: 0,
+            message:
+              "You have reached your daily limit. Sign in with Google for a higher quota.",
+          },
+          { status: 429 }
+        )
+      }
+
+      remaining = quotaData[0].remaining
+    }
 
     // 4. Embed the user question
     const qEmbedding = await embedText(message.trim())
