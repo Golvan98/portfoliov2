@@ -75,18 +75,28 @@ export function Sidebar({
   const newCatInputRef = useRef<HTMLInputElement>(null)
   const newProjInputRef = useRef<HTMLInputElement>(null)
   const submittingRef = useRef(false)
+  const knownCategoryIdsRef = useRef<Set<string>>(
+    new Set(categories.map((c) => c.id))
+  )
 
-  // Keep expanded set in sync when categories change
+  // Expand only genuinely new categories; leave collapsed ones alone
   useEffect(() => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      categories.forEach((c) => {
-        if (!prev.has(c.id) && prev.size === 0) next.add(c.id)
+    const currentIds = new Set(categories.map((c) => c.id))
+    const known = knownCategoryIdsRef.current
+    const newIds: string[] = []
+    for (const id of currentIds) {
+      if (!known.has(id)) newIds.push(id)
+    }
+    // Update known set to match current categories
+    knownCategoryIdsRef.current = currentIds
+
+    if (newIds.length > 0) {
+      setExpandedCategories((prev) => {
+        const next = new Set(prev)
+        for (const id of newIds) next.add(id)
+        return next
       })
-      // Add any new categories
-      categories.forEach((c) => next.add(c.id))
-      return next
-    })
+    }
   }, [categories])
 
   // Auto-focus refs
