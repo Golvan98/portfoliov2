@@ -58,7 +58,12 @@ export function ChatWidget() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user && !historyLoadedRef.current) {
+      if (!session?.user) {
+        // User logged out — allow history to reload on next login
+        historyLoadedRef.current = false
+        return
+      }
+      if (!historyLoadedRef.current) {
         historyLoadedRef.current = true
         loadHistory()
       }

@@ -16,7 +16,7 @@ export async function GET() {
     .from("agent_chat_history")
     .select("role, content, sources")
     .eq("user_id", user.id)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(20)
 
   if (error) {
@@ -24,5 +24,8 @@ export async function GET() {
     return NextResponse.json({ messages: [] })
   }
 
-  return NextResponse.json({ messages: data ?? [] })
+  // Fetched newest-first for correct LIMIT, reverse to chronological for display
+  const messages = (data ?? []).reverse()
+  console.log(`[agent/history] user=${user.id} rows=${messages.length}`)
+  return NextResponse.json({ messages })
 }
