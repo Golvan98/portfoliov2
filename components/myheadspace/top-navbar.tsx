@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Home, LogOut } from "lucide-react"
+import { Home, LogIn, LogOut } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -34,6 +34,16 @@ export function TopNavbar() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  function handleSignIn() {
+    const supabase = createClient()
+    supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+  }
 
   function handleSignOut() {
     const supabase = createClient()
@@ -95,10 +105,17 @@ export function TopNavbar() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="mr-2 size-4" />
-              Sign out
-            </DropdownMenuItem>
+            {user ? (
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut className="mr-2 size-4" />
+                Sign out
+              </DropdownMenuItem>
+            ) : (
+              <DropdownMenuItem onClick={handleSignIn}>
+                <LogIn className="mr-2 size-4" />
+                Sign in
+              </DropdownMenuItem>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
