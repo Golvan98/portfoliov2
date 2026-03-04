@@ -74,6 +74,7 @@ export function Sidebar({
   const projInputRef = useRef<HTMLInputElement>(null)
   const newCatInputRef = useRef<HTMLInputElement>(null)
   const newProjInputRef = useRef<HTMLInputElement>(null)
+  const submittingRef = useRef(false)
 
   // Keep expanded set in sync when categories change
   useEffect(() => {
@@ -147,8 +148,14 @@ export function Sidebar({
   }
 
   async function commitCreateCategory() {
-    if (newCategoryName.trim()) {
-      await onCreateCategory(newCategoryName.trim())
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      if (newCategoryName.trim()) {
+        await onCreateCategory(newCategoryName.trim())
+      }
+    } finally {
+      submittingRef.current = false
     }
     setIsCreatingCategory(false)
     setNewCategoryName("")
@@ -189,8 +196,14 @@ export function Sidebar({
   }
 
   async function commitCreateProject() {
-    if (creatingInCategoryId && newProjectTitle.trim()) {
-      await onCreateProject(creatingInCategoryId, newProjectTitle.trim())
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      if (creatingInCategoryId && newProjectTitle.trim()) {
+        await onCreateProject(creatingInCategoryId, newProjectTitle.trim())
+      }
+    } finally {
+      submittingRef.current = false
     }
     setCreatingInCategoryId(null)
     setNewProjectTitle("")

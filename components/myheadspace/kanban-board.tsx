@@ -76,6 +76,7 @@ export function KanbanBoard({
   const projInputRef = useRef<HTMLInputElement>(null)
   const newProjInputRef = useRef<HTMLInputElement>(null)
   const newTaskInputRef = useRef<HTMLInputElement>(null)
+  const submittingRef = useRef(false)
 
   useEffect(() => {
     if (editingProjectId) projInputRef.current?.focus()
@@ -123,8 +124,14 @@ export function KanbanBoard({
   }
 
   async function commitCreateProject() {
-    if (newProjectTitle.trim()) {
-      await onCreateProject(activeCategoryId, newProjectTitle.trim())
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      if (newProjectTitle.trim()) {
+        await onCreateProject(activeCategoryId, newProjectTitle.trim())
+      }
+    } finally {
+      submittingRef.current = false
     }
     setIsCreatingProject(false)
     setNewProjectTitle("")
@@ -143,8 +150,14 @@ export function KanbanBoard({
   }
 
   async function commitCreateTask() {
-    if (creatingInColumn && newTaskTitle.trim()) {
-      await onCreateTask(newTaskTitle.trim(), creatingInColumn)
+    if (submittingRef.current) return
+    submittingRef.current = true
+    try {
+      if (creatingInColumn && newTaskTitle.trim()) {
+        await onCreateTask(newTaskTitle.trim(), creatingInColumn)
+      }
+    } finally {
+      submittingRef.current = false
     }
     setCreatingInColumn(null)
     setNewTaskTitle("")
