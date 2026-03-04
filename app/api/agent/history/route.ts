@@ -14,7 +14,7 @@ export async function GET() {
   const serviceClient = createServiceRoleClient()
   const { data, error } = await serviceClient
     .from("agent_chat_history")
-    .select("role, content, sources")
+    .select("role, content, sources, created_at")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(20)
@@ -24,8 +24,11 @@ export async function GET() {
     return NextResponse.json({ messages: [] })
   }
 
-  // Fetched newest-first for correct LIMIT, reverse to chronological for display
-  const messages = (data ?? []).reverse()
+  // Sort chronologically in JS (oldest first) regardless of DB return order
+  const sorted = (data ?? []).sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  )
+  const messages = sorted.map(({ created_at: _, ...rest }) => rest)
   console.log(`[agent/history] user=${user.id} rows=${messages.length}`)
   return NextResponse.json({ messages })
 }
