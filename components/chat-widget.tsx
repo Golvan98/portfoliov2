@@ -41,20 +41,27 @@ export function ChatWidget() {
   const [user, setUser] = useState<User | null>(null)
   const [authOpen, setAuthOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const historyLoadedRef = useRef(false)
 
   // Auth state + load chat history for logged-in users
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
-      if (user) loadHistory(user.id)
+      if (user && !historyLoadedRef.current) {
+        historyLoadedRef.current = true
+        loadHistory()
+      }
     })
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
-      if (session?.user) loadHistory(session.user.id)
+      if (session?.user && !historyLoadedRef.current) {
+        historyLoadedRef.current = true
+        loadHistory()
+      }
     })
 
     return () => subscription.unsubscribe()
@@ -68,22 +75,23 @@ export function ChatWidget() {
     return () => window.removeEventListener("open-chat-widget", handler)
   }, [])
 
-  async function loadHistory(userId: string) {
-    const { data } = await createClient()
-      .from("agent_chat_history")
-      .select("role, content, sources")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: true })
-      .limit(20)
-    if (!data || data.length === 0) return
-    const loaded: Message[] = data.map((row, i) => ({
-      id: i + 1,
-      role: row.role === "user" ? "user" : "agent",
-      text: row.content,
-      sources: row.sources?.length ? row.sources : undefined,
-    }))
-    setMessages([starterMessage, ...loaded])
-    setIdCounter(loaded.length + 1)
+  async function loadHistory() {
+    try {
+      const res = await fetch("/api/agent/history")
+      if (!res.ok) return
+      const { messages: rows } = await res.json()
+      if (!rows || rows.length === 0) return
+      const loaded: Message[] = rows.map((row: any, i: number) => ({
+        id: i + 1,
+        role: row.role === "user" ? "user" : "agent",
+        text: row.content,
+        sources: row.sources?.length ? row.sources : undefined,
+      }))
+      setMessages([starterMessage, ...loaded])
+      setIdCounter(loaded.length + 1)
+    } catch {
+      // History load failed — keep starter message
+    }
   }
 
   // Scroll to bottom on new messages
@@ -241,6 +249,7 @@ export function ChatWidget() {
                     msg.sources.length > 0 && (
                       <div className="mt-1.5 ml-1 flex flex-col gap-0.5">
                         {msg.sources
+                          .filter((s) => !s.title?.startsWith("Task:"))
                           .filter(
                             (s, i, arr) =>
                               arr.findIndex((x) => x.doc_id === s.doc_id) === i

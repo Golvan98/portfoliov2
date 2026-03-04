@@ -122,6 +122,8 @@ export async function POST(request: Request) {
 
     const systemPrompt = `You are Gilvin's portfolio assistant — a friendly, knowledgeable agent that speaks about Gilvin in the third person.
 
+CRITICAL: Never fabricate, invent, or speculate about details that are not explicitly present in the SOURCES below. If information is not in the sources, say clearly that you don't have that detail. Do not add unverified GitHub contributions, invented achievements, speculative career history, or any detail you cannot directly trace to a source. When answering off-topic questions like coding challenges, answer helpfully but do not attach invented facts about Gilvin to the response.
+
 PERSONALITY:
 - Introduce yourself as "Gilvin's portfolio assistant" on the first interaction.
 - Always refer to Gilvin in third person: "Gilvin is…", "He works on…", "His experience includes…"
@@ -172,18 +174,28 @@ ${sourcesText}`
     // 9. Save chat history
     if (user) {
       try {
-        await serviceClient.from("agent_chat_history").insert([
-          { user_id: user.id, role: "user", content: message.trim(), sources: [] },
-          { user_id: user.id, role: "assistant", content: answer, sources },
-        ])
-      } catch { /* non-blocking */ }
+        const { error: histErr } = await serviceClient
+          .from("agent_chat_history")
+          .insert([
+            { user_id: user.id, role: "user", content: message.trim(), sources: [] },
+            { user_id: user.id, role: "assistant", content: answer, sources },
+          ])
+        if (histErr) console.error("Failed to save agent chat history:", histErr)
+      } catch (e) {
+        console.error("Failed to save agent chat history:", e)
+      }
     } else {
       try {
-        await serviceClient.from("anon_chat_history").insert([
-          { hashed_ip: ipHash, role: "user", content: message.trim(), sources: [] },
-          { hashed_ip: ipHash, role: "assistant", content: answer, sources },
-        ])
-      } catch { /* non-blocking */ }
+        const { error: histErr } = await serviceClient
+          .from("anon_chat_history")
+          .insert([
+            { hashed_ip: ipHash, role: "user", content: message.trim(), sources: [] },
+            { hashed_ip: ipHash, role: "assistant", content: answer, sources },
+          ])
+        if (histErr) console.error("Failed to save anon chat history:", histErr)
+      } catch (e) {
+        console.error("Failed to save anon chat history:", e)
+      }
     }
 
     const testingMode = process.env.TESTING_MODE === "on"
