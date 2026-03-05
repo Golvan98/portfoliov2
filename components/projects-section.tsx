@@ -11,6 +11,8 @@ const projects: ProjectData[] = [
     description:
       "An end-to-end video pipeline that ingests raw footage, runs object detection and scene segmentation, and surfaces highlights through a clean web dashboard.",
     techStack: ["Python", "FastAPI", "FFmpeg", "React", "PostgreSQL", "Docker", "OpenCV", "Redis", "Whisper", "Cloudflare", "Cloudflare R2 (S3)", "Next.js"],
+    demoUrl: "https://clipnet.ai/",
+    buttonLabel: "Visit website",
   },
   {
     title: "StudySpring",
@@ -21,6 +23,8 @@ const projects: ProjectData[] = [
     description:
       "A spaced repetition study platform with adaptive scheduling, progress analytics, and collaborative decks built around retention science.",
     techStack: ["Next.js", "Supabase", "Tailwind", "TypeScript"],
+    demoUrl: "https://ai-study-buddy-chi-murex.vercel.app/",
+    buttonLabel: "Visit website",
   },
   {
     title: "MyHeadSpace 2.0",
@@ -32,6 +36,7 @@ const projects: ProjectData[] = [
       "A private workspace for managing projects, tasks, and notes \u2014 the operational core of this portfolio. Every action is publicly logged so visitors see real, ongoing work.",
     techStack: ["Next.js", "Supabase", "pgvector", "Gemini"],
     demoUrl: "https://portfoliov2-three-liard.vercel.app/myheadspace",
+    buttonLabel: "Visit website",
   },
   {
     title: "Automated Needs Assessment Survey",
@@ -42,6 +47,7 @@ const projects: ProjectData[] = [
     description:
       "A mental health survey questionnaire system built for MSU-IIT that automated school counselors\u2019 needs assessments. Collected student inputs via multi-page survey forms and visualized demographic insights through pie charts and graphs for guidance counselors.",
     techStack: ["PHP", "MySQL", "JavaScript", "HTML/CSS"],
+    buttonLabel: "Coming soon",
   },
 ]
 

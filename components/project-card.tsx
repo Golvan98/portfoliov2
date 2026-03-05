@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { ArrowRight, Code } from "lucide-react"
+import { Code } from "lucide-react"
 
 export interface ProjectData {
   title: string
@@ -12,6 +12,7 @@ export interface ProjectData {
   techStack: string[]
   demoUrl?: string
   codeUrl?: string
+  buttonLabel?: string
 }
 
 const accentMap: Record<string, { badge: string; button: string; preview: string; text: string }> = {
@@ -98,38 +99,46 @@ export function ProjectCard({ project }: { project: ProjectData }) {
 
           {/* Actions */}
           <div className="flex flex-wrap items-center gap-3 pt-2">
-            <Button
-              size="sm"
-              className={`rounded-full ${colors.button}`}
-              asChild={!!project.demoUrl}
-              disabled={!project.demoUrl}
-            >
-              {project.demoUrl ? (
-                <a href={project.demoUrl} target="_blank" rel="noopener noreferrer">
-                  Test it out
-                  <ArrowRight className="size-3.5" />
-                </a>
-              ) : (
-                <span>
-                  Test it out
-                  <ArrowRight className="size-3.5" />
-                </span>
-              )}
-            </Button>
+            {project.buttonLabel === "Coming soon" ? (
+              <Button
+                size="sm"
+                className="rounded-full opacity-50 cursor-not-allowed"
+                disabled
+              >
+                <span className="whitespace-nowrap">Coming soon</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                className={`rounded-full ${colors.button}`}
+                asChild={!!project.demoUrl}
+                disabled={!project.demoUrl}
+              >
+                {project.demoUrl ? (
+                  <a href={project.demoUrl} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap">
+                    {project.buttonLabel || "Visit website"} →
+                  </a>
+                ) : (
+                  <span className="whitespace-nowrap">
+                    {project.buttonLabel || "Visit website"} →
+                  </span>
+                )}
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
-              className="rounded-full border-border text-foreground hover:bg-muted dark:border-white/10 dark:text-slate-300 dark:hover:text-white"
+              className="whitespace-nowrap rounded-full border-border text-foreground hover:bg-muted dark:border-white/10 dark:text-slate-300 dark:hover:text-white"
               asChild={!!project.codeUrl}
               disabled={!project.codeUrl}
             >
               {project.codeUrl ? (
-                <a href={project.codeUrl} target="_blank" rel="noopener noreferrer">
+                <a href={project.codeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1">
                   <Code className="size-3.5" />
                   View code
                 </a>
               ) : (
-                <span>
+                <span className="flex items-center gap-1">
                   <Code className="size-3.5" />
                   View code
                 </span>
