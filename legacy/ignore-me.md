@@ -203,32 +203,3 @@ The following intentional changes were made via recent commits and differ from A
 | Supabase URL | https://liqlzqrylfhuuxqbyjho.supabase.co |
 | Supabase OAuth callback | https://liqlzqrylfhuuxqbyjho.supabase.co/auth/v1/callback |
 | Admin email | gilvinsz@gmail.com |
-
----
-
-## Session Log — March 5, 2026
-
-Bug-fix marathon across the agent chat and MyHeadSpace workspace. No new features — all 8 commits are stability and UX fixes.
-
-### Agent & Chat fixes
-1. **`3f768e7`** — `fix(agent): add anti-hallucination guard and filter task citations from UI`
-   - Added an anti-hallucination guard to the agent route so the LLM sticks to retrieved context
-   - Chat widget now filters out internal task-level citations from the displayed sources
-   - Created `/api/agent/history` route for fetching chat history
-2. **`feef9b1`** — `fix(chat): reset history ref on logout, fix history ordering to return most recent messages`
-   - Chat history ref is now cleared on logout so stale messages don't persist across sessions
-   - History API returns the most recent messages in correct chronological order
-3. **`224c91a`** — `fix(chat): fix history display order using explicit JS sort by created_at`
-   - Added explicit client-side sort by `created_at` to guarantee message ordering regardless of DB return order
-
-### MyHeadSpace workspace fixes
-4. **`f6f3046`** — `fix(myheadspace): guard all create functions against double-submit on rapid Enter`
-   - Sidebar (category/project create) and kanban (task create) now have debounce guards preventing duplicate entries when Enter is pressed quickly
-5. **`7f4d002`** — `fix dropdown menu for task status not appearing bug`
-   - Fixed portal/z-index issue in `dropdown-menu.tsx` so the task status dropdown renders on top of the kanban board
-6. **`a705175`** — `fix(myheadspace): wrap DropdownMenuSubContent in Portal to fix submenu clipping`
-   - Top navbar dropdown submenus were being clipped by overflow containers; wrapping in a Portal fixes the rendering
-7. **`9c694b1`** — `fix(myheadspace): show Sign in when logged out, Sign out when logged in, wire Google OAuth from header`
-   - MyHeadSpace top navbar now correctly shows "Sign in" for unauthenticated users and "Sign out" for authenticated users, with Google OAuth wired directly from the header
-8. **`75092d1`** — `fixed folded categories unfolding when selecting a project from category nav tab`
-   - Selecting a project from the category nav tab no longer forces its parent category to expand — collapsed categories stay collapsed
