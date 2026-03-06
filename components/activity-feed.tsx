@@ -20,12 +20,6 @@ const dotColors: Record<string, string> = {
   delete: "bg-red-500",
 }
 
-const actionVerbs: Record<string, string> = {
-  create: "created",
-  update: "updated",
-  delete: "deleted",
-}
-
 export function ActivityFeed() {
   const [activities, setActivities] = useState<ActivityRow[]>([])
   const [loaded, setLoaded] = useState(false)
@@ -131,15 +125,7 @@ export function ActivityFeed() {
                   <p className="text-sm leading-snug text-foreground">
                     <span className="font-medium">Gilvin</span>{" "}
                     <span className="text-muted-foreground">
-                      just {actionVerbs[item.action] ?? item.action}
-                    </span>{" "}
-                    <span className="text-muted-foreground">
-                      {item.entity_type}:
-                    </span>{" "}
-                    <span className="font-medium">
-                      {"\u201c"}
                       {item.entity_title}
-                      {"\u201d"}
                     </span>
                   </p>
                 </div>

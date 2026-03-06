@@ -19,12 +19,6 @@ const dotColors: Record<string, string> = {
   delete: "bg-red-500",
 }
 
-const actionVerbs: Record<string, string> = {
-  create: "created",
-  update: "updated",
-  delete: "deleted",
-}
-
 interface ActivityListProps {
   initialActivities: ActivityRow[]
 }
@@ -83,15 +77,7 @@ export function ActivityList({ initialActivities }: ActivityListProps) {
                 <p className="text-sm leading-snug text-foreground sm:text-base">
                   <span className="font-medium">Gilvin</span>{" "}
                   <span className="text-muted-foreground">
-                    just {actionVerbs[item.action] ?? item.action}
-                  </span>{" "}
-                  <span className="text-muted-foreground">
-                    {item.entity_type}:
-                  </span>{" "}
-                  <span className="font-medium">
-                    {"\u201c"}
                     {item.entity_title}
-                    {"\u201d"}
                   </span>
                 </p>
               </div>

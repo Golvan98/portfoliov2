@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/client"
 
 export async function logActivity(params: {
   action: "create" | "update" | "delete"
-  entity_type: "project" | "task"
+  entity_type: "project" | "task" | "category"
   entity_id: string
   entity_title: string
   owner_id: string

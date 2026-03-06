@@ -59,6 +59,15 @@ export function Workspace({
     return categories.find((c) => c.id === categoryId)?.name ?? "Uncategorized"
   }
 
+  function statusLabel(s: string): string {
+    const labels: Record<string, string> = {
+      todo: "To Do",
+      in_progress: "In Progress",
+      done: "Done",
+    }
+    return labels[s] ?? s
+  }
+
   function getProjectTitle(projectId: string): string {
     return projects.find((p) => p.id === projectId)?.title ?? ""
   }
@@ -172,6 +181,13 @@ export function Workspace({
       toast.error(`Failed to create category: ${error.message}`)
       return
     }
+    await logActivity({
+      action: "create",
+      entity_type: "category",
+      entity_id: "",
+      entity_title: `created category "${name}"`,
+      owner_id: userId!,
+    })
     await refetchCategories()
   }
 
@@ -185,6 +201,13 @@ export function Workspace({
       toast.error("Failed to rename category")
       return
     }
+    await logActivity({
+      action: "update",
+      entity_type: "category",
+      entity_id: id,
+      entity_title: `updated category "${name}"`,
+      owner_id: userId!,
+    })
     await refetchCategories()
   }
 
@@ -197,6 +220,16 @@ export function Workspace({
     if (error) {
       toast.error("Failed to delete category")
       return
+    }
+    const cat = categories.find((c) => c.id === id)
+    if (cat) {
+      await logActivity({
+        action: "delete",
+        entity_type: "category",
+        entity_id: id,
+        entity_title: `deleted category "${cat.name}"`,
+        owner_id: userId!,
+      })
     }
     await refetchCategories()
     await refetchProjects()
@@ -219,7 +252,7 @@ export function Workspace({
       action: "create",
       entity_type: "project",
       entity_id: data.id,
-      entity_title: data.title,
+      entity_title: `created project "${data.title}" under ${getCategoryName(categoryId)}`,
       owner_id: userId!,
     })
     // RAG sync
@@ -258,7 +291,7 @@ export function Workspace({
       action: "update",
       entity_type: "project",
       entity_id: id,
-      entity_title: title,
+      entity_title: `updated project "${title}"`,
       owner_id: userId!,
     })
     // RAG sync (includes task summary)
@@ -317,7 +350,7 @@ export function Workspace({
         action: "delete",
         entity_type: "project",
         entity_id: id,
-        entity_title: project.title,
+        entity_title: `deleted project "${project.title}"`,
         owner_id: userId!,
       })
     }
@@ -355,7 +388,7 @@ export function Workspace({
       action: "create",
       entity_type: "task",
       entity_id: data.id,
-      entity_title: data.title,
+      entity_title: `created task "${data.title}" in ${getProjectTitle(activeProjectId)}`,
       owner_id: userId!,
     })
     // RAG sync
@@ -390,13 +423,17 @@ export function Workspace({
       toast.error("Failed to rename task")
       return
     }
-    await logActivity({
-      action: "update",
-      entity_type: "task",
-      entity_id: id,
-      entity_title: title,
-      owner_id: userId!,
-    })
+    {
+      const task = tasks.find((t) => t.id === id)
+      const projTitle = getProjectTitle(task?.project_id ?? activeProjectId ?? "")
+      await logActivity({
+        action: "update",
+        entity_type: "task",
+        entity_id: id,
+        entity_title: `updated task "${title}" in ${projTitle}`,
+        owner_id: userId!,
+      })
+    }
     // RAG sync
     try {
       const task = tasks.find((t) => t.id === id)
@@ -434,7 +471,9 @@ export function Workspace({
         action: "update",
         entity_type: "task",
         entity_id: id,
-        entity_title: task.title,
+        entity_title: newStatus === "todo"
+          ? `moved "${task.title}" back to To Do in ${getProjectTitle(task.project_id)}`
+          : `marked "${task.title}" as ${statusLabel(newStatus)} in ${getProjectTitle(task.project_id)}`,
         owner_id: userId!,
       })
       // RAG sync
@@ -484,7 +523,7 @@ export function Workspace({
         action: "delete",
         entity_type: "task",
         entity_id: id,
-        entity_title: task.title,
+        entity_title: `deleted task "${task.title}" from ${getProjectTitle(task.project_id)}`,
         owner_id: userId!,
       })
     }
