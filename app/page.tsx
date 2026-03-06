@@ -13,12 +13,21 @@ export default function Home() {
       {/* About */}
       <section id="about" className="px-6 py-20 dark:bg-[#080810]">
         <div className="mx-auto max-w-6xl">
-          <h2 className="font-display text-3xl font-extrabold tracking-tight text-foreground dark:text-white sm:text-4xl">
-            About
-          </h2>
-          <p className="mt-4 max-w-2xl leading-relaxed text-muted-foreground dark:text-slate-400">
-            {"I\u2019m Gilvin Zalsos \u2014 a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from \u2018messy input\u2019 to \u2018clean output.\u2019 My technical comfort zone is end-to-end backend execution \u2014 designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize \u2014 especially in backend/pipeline-heavy work \u2014 that\u2019s what I do."}
-          </p>
+          <div className="flex flex-col items-center gap-10 md:flex-row md:items-start">
+            <img
+              src="/images/gilvin.jpg"
+              alt="Gilvin Zalsos"
+              className="h-[400px] w-[320px] shrink-0 rounded-2xl object-cover shadow-lg md:order-2"
+            />
+            <div className="md:order-1">
+              <h2 className="font-display text-3xl font-extrabold tracking-tight text-foreground dark:text-white sm:text-4xl">
+                About
+              </h2>
+              <p className="mt-4 max-w-2xl leading-relaxed text-muted-foreground dark:text-slate-400">
+                {"I\u2019m Gilvin Zalsos \u2014 a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from \u2018messy input\u2019 to \u2018clean output.\u2019 My technical comfort zone is end-to-end backend execution \u2014 designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize \u2014 especially in backend/pipeline-heavy work \u2014 that\u2019s what I do."}
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

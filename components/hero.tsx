@@ -8,10 +8,13 @@ import { ArrowDown, Sparkles } from "lucide-react"
 const techStack = [
   "Next.js",
   "Supabase",
-  "Gemini",
+  "React",
   "Python",
   "TypeScript",
-  "pgvector",
+  "Node.js + Express.js",
+  "Cloudflare R2 ",
+  "Railway",
+  "MySQL"  
 ]
 
 export function Hero() {
