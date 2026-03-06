@@ -7,7 +7,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ## Current Status
 
-**Last updated:** March 5, 2026
+**Last updated:** March 6, 2026
 **Deployed at:** https://portfoliov2-three-liard.vercel.app
 **GitHub:** https://github.com/Golvan98/portfoliov2
 **Supabase project ID:** liqlzqrylfhuuxqbyjho
@@ -232,3 +232,27 @@ Bug-fix marathon across the agent chat and MyHeadSpace workspace. No new feature
    - MyHeadSpace top navbar now correctly shows "Sign in" for unauthenticated users and "Sign out" for authenticated users, with Google OAuth wired directly from the header
 8. **`75092d1`** — `fixed folded categories unfolding when selecting a project from category nav tab`
    - Selecting a project from the category nav tab no longer forces its parent category to expand — collapsed categories stay collapsed
+
+---
+
+## Session Log — March 6, 2026
+
+Landing page polish and activity feed message overhaul.
+
+### Commits pushed today:
+1. **`be1d67d`** — `fix landing page links`
+   - Project cards now support a `buttonLabel` prop — "Visit website", "Coming soon", etc. instead of the old generic "Test it out"
+   - "Coming soon" renders as a disabled, dimmed button; all other labels get an arrow suffix and link to `demoUrl`
+   - Added `demoUrl` and `buttonLabel` to the ClipNet project card (links to https://clipnet.ai/)
+   - Minor styling: `whitespace-nowrap` on buttons, consistent icon gap on "View code"
+2. **`a8cc915`** — `feat: improve activity feed messages with precise action context`
+   - Rewrote all 10 `logActivity()` call sites in `workspace.tsx` to store natural, context-rich messages in `entity_title` instead of bare titles
+   - Status changes use specific wording: "marked ... as Done", "marked ... as In Progress", "moved ... back to To Do"
+   - Task create/update/delete messages include "in project ..." or "from project ..." for clarity
+   - Project create includes "under [category]"; project delete is standalone
+   - Added category CRUD activity logging (create/update/delete) — previously categories had no activity trail
+   - Added `statusLabel()` helper and `entity_type: "category"` to the `logActivity` type union
+   - Updated `activity-feed.tsx` and `activity-list.tsx` to render `entity_title` directly instead of constructing messages from separate action/type/title parts — removed the now-unused `actionVerbs` map
+
+### Uncommitted changes (in progress):
+- Further refinement of task `entity_title` messages: added "project" prefix before project names (e.g., "from project X" instead of "from X"), removed redundant "task" from delete message ("deleted ..." instead of "deleted task ...")

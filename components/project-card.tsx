@@ -12,6 +12,7 @@ export interface ProjectData {
   techStack: string[]
   demoUrl?: string
   codeUrl?: string
+  codeLabel?: string
   buttonLabel?: string
 }
 
@@ -27,6 +28,12 @@ const accentMap: Record<string, { badge: string; button: string; preview: string
     button: "bg-[#0ea5e9] hover:bg-[#0ea5e9]/90 text-white",
     preview: "bg-[#f0f9ff] dark:bg-[#0ea5e9]/10",
     text: "text-[#0ea5e9] dark:text-[#38bdf8]",
+  },
+  "#10b981": {
+    badge: "bg-[#ecfdf5] text-[#10b981] border-[#10b981]/20 dark:bg-[#10b981]/10 dark:text-[#34d399] dark:border-[#10b981]/30",
+    button: "bg-[#10b981] hover:bg-[#10b981]/90 text-white",
+    preview: "bg-[#ecfdf5] dark:bg-[#10b981]/10",
+    text: "text-[#10b981] dark:text-[#34d399]",
   },
   "#d97706": {
     badge: "bg-[#fffbeb] text-[#d97706] border-[#d97706]/20 dark:bg-[#d97706]/10 dark:text-[#fbbf24] dark:border-[#d97706]/30",
@@ -125,6 +132,19 @@ export function ProjectCard({ project }: { project: ProjectData }) {
                 )}
               </Button>
             )}
+            {project.codeLabel === "Private repo" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full opacity-50 cursor-not-allowed"
+              disabled
+            >
+              <span className="flex items-center gap-1 whitespace-nowrap">
+                <Code className="size-3.5" />
+                Private repo
+              </span>
+            </Button>
+            ) : (
             <Button
               variant="outline"
               size="sm"
@@ -144,6 +164,7 @@ export function ProjectCard({ project }: { project: ProjectData }) {
                 </span>
               )}
             </Button>
+            )}
           </div>
         </div>
       </div>

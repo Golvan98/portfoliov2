@@ -388,7 +388,7 @@ export function Workspace({
       action: "create",
       entity_type: "task",
       entity_id: data.id,
-      entity_title: `created task "${data.title}" in ${getProjectTitle(activeProjectId)}`,
+      entity_title: `created task "${data.title}" in project ${getProjectTitle(activeProjectId)}`,
       owner_id: userId!,
     })
     // RAG sync
@@ -430,7 +430,7 @@ export function Workspace({
         action: "update",
         entity_type: "task",
         entity_id: id,
-        entity_title: `updated task "${title}" in ${projTitle}`,
+        entity_title: `updated task "${title}" in project ${projTitle}`,
         owner_id: userId!,
       })
     }
@@ -472,8 +472,8 @@ export function Workspace({
         entity_type: "task",
         entity_id: id,
         entity_title: newStatus === "todo"
-          ? `moved "${task.title}" back to To Do in ${getProjectTitle(task.project_id)}`
-          : `marked "${task.title}" as ${statusLabel(newStatus)} in ${getProjectTitle(task.project_id)}`,
+          ? `moved "${task.title}" back to To Do in project ${getProjectTitle(task.project_id)}`
+          : `marked "${task.title}" as ${statusLabel(newStatus)} in project ${getProjectTitle(task.project_id)}`,
         owner_id: userId!,
       })
       // RAG sync
@@ -523,7 +523,7 @@ export function Workspace({
         action: "delete",
         entity_type: "task",
         entity_id: id,
-        entity_title: `deleted task "${task.title}" from ${getProjectTitle(task.project_id)}`,
+        entity_title: `deleted "${task.title}" from project ${getProjectTitle(task.project_id)}`,
         owner_id: userId!,
       })
     }
