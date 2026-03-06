@@ -24,7 +24,7 @@ export default function Home() {
                 About
               </h2>
               <p className="mt-4 max-w-2xl leading-relaxed text-muted-foreground dark:text-slate-400">
-                {"I\u2019m Gilvin Zalsos \u2014 a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from \u2018messy input\u2019 to \u2018clean output.\u2019 My technical comfort zone is end-to-end backend execution \u2014 designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize \u2014 especially in backend/pipeline-heavy work \u2014 that\u2019s what I do."}
+                {"I\u2019m Gilvin Zalsos, a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from \u2018messy input\u2019 to \u2018clean output.\u2019 My technical comfort zone is end-to-end backend execution: designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize, especially in backend/pipeline-heavy work, that\u2019s what I do."}
               </p>
             </div>
           </div>
