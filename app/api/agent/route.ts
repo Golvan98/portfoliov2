@@ -89,8 +89,70 @@ export async function POST(request: Request) {
       remaining = quotaData[0].remaining
     }
 
-    // 4. Embed the user question
-    const qEmbedding = await embedText(message.trim())
+    // 3.5. Query rewriting — resolve pronouns and classify intent using recent chat history
+    let searchQuery = message.trim()
+    let intent: "professional" | "casual" = "professional"
+
+    try {
+      let history: { role: string; content: string }[] = []
+      if (user) {
+        const { data } = await serviceClient
+          .from("agent_chat_history")
+          .select("role, content")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(4)
+        history = (data ?? []).reverse()
+      } else {
+        const { data } = await serviceClient
+          .from("anon_chat_history")
+          .select("role, content")
+          .eq("hashed_ip", ipHash)
+          .order("created_at", { ascending: false })
+          .limit(4)
+        history = (data ?? []).reverse()
+      }
+
+      if (history.length > 0) {
+        const rewriteGroq = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" })
+        const historyText = history
+          .map((m) => `${m.role}: ${m.content}`)
+          .join("\n")
+
+        const rewriteCompletion = await rewriteGroq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            {
+              role: "system",
+              content: `You are a search query optimizer. Given a conversation history and a new user message, do two things:
+1. Rewrite the user message into a self-contained search query that resolves any pronouns or references using the conversation history. If the message is already self-contained, return it as-is.
+2. Classify the intent as either "professional" (skills, projects, experience, contact) or "casual" (hobbies, personal life, free time).
+
+Respond only in JSON: { "query": "rewritten query here", "intent": "professional" | "casual" }`,
+            },
+            {
+              role: "user",
+              content: `Conversation history:\n${historyText}\n\nNew message: ${message.trim()}`,
+            },
+          ],
+          max_tokens: 200,
+        })
+
+        const rewriteRaw = rewriteCompletion.choices[0]?.message?.content ?? ""
+        const rewritten = JSON.parse(rewriteRaw)
+        if (rewritten.query && typeof rewritten.query === "string") {
+          searchQuery = rewritten.query
+        }
+        if (rewritten.intent === "casual") {
+          intent = "casual"
+        }
+      }
+    } catch {
+      // Fall back to raw message and default professional intent
+    }
+
+    // 4. Embed the user question (using rewritten query)
+    const qEmbedding = await embedText(searchQuery)
 
     // 5. Similarity search — top K chunks via RPC
     const topK = parseInt(process.env.AGENT_TOP_K ?? "8")
@@ -142,6 +204,11 @@ FORMAT:
 - When referencing source titles, never wrap them in angle brackets. Write them as plain text only (e.g., "About Gilvin Zalsos", not "<About Gilvin Zalsos>").
 - When listing items, always use the "•" bullet character. Never use asterisks ("*") for bullets.
 - Never introduce yourself or state that you are Gilvin's portfolio assistant at the start of a response. Get straight to answering the question.
+
+INTENT:
+${intent === "casual"
+  ? "This is a casual query. You may reference personal interests, hobbies, and life outside of work."
+  : "This is a professional query. Only reference projects, skills, and work experience. Do not mention personal errands, hobbies, or non-work projects unless directly asked."}
 
 SOURCES:
 ${sourcesText}`
