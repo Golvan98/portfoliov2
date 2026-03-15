@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold. Post-processing strips `[n]` citation markers from answers before returning to client and before persisting to chat history. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.3-70b-versatile` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction. Post-processing strips `[n]` citation markers, `**bold**` wrappers, and `<angle brackets>` from answers before returning to client and before persisting to chat history. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
@@ -94,12 +94,12 @@ The following intentional changes were made via recent commits and differ from A
 
 | What | Docs say | Code uses | Reason |
 |---|---|---|---|
-| Chat model | `gemini-2.0-flash` | Groq `llama-3.1-8b-instant` | Gemini free tier chat quota too restrictive; Groq provides generous free tier for chat |
+| Chat model | `gemini-2.0-flash` | Groq `llama-3.3-70b-versatile` | Gemini free tier chat quota too restrictive; Groq provides generous free tier. Upgraded from `llama-3.1-8b-instant` for improved instruction following and factual accuracy |
 | Embedding model | `text-embedding-004` | `gemini-embedding-001` | Avoid 404 / compatibility (commits ce54695, b36fc8f, 988c13f) |
 | Agent system prompt | Strict rules, hard refusals | Third-person voice, conversational, no hard refusals | Better UX — answers casual questions naturally, prioritizes recent activity |
 | Agent quota | Enforced for all users | Bypassed for admin (gilvinsz@gmail.com) | Admin should have unlimited access to own portfolio agent |
 
-**Chat completion** uses Groq SDK (`groq-sdk`) with `llama-3.1-8b-instant`. The `@google/generative-ai` SDK has been removed from the project.
+**Chat completion** uses Groq SDK (`groq-sdk`) with `llama-3.3-70b-versatile` (upgraded from `llama-3.1-8b-instant`). The `@google/generative-ai` SDK has been removed from the project.
 
 **Embeddings** still use Gemini REST API directly (not the SDK) with `gemini-embedding-001` and `outputDimensionality: 768`, which matches the pgvector column dimension. Gemini's embedding free tier has generous limits. No DB changes needed — vector dimensions stay at 768.
 
@@ -284,3 +284,16 @@ Agent output quality improvements and MyHeadSpace project description feature.
    - **Display:** Project description shown between the tab bar and search bar on the kanban board. If no description exists, admins see a muted placeholder "No description yet. Click to add one." Non-admins see nothing when empty.
    - **Edit in place:** Clicking the description (admin only) opens an inline textarea. On blur, `onUpdateDescription` calls `updateProjectDescription()` in `workspace.tsx`, which updates the `projects` row and triggers an immediate RAG sync.
    - **RAG sync confirmed:** `buildProjectContent()` in `lib/rag/sync-knowledge-doc.ts` already included `Description: ${p.description ?? ""}` in the embedded content string — no changes needed there.
+
+2. **`c5759bc`** — `fix agent response format, no longer tries to bolden some characters`
+   - Post-processing now also strips `**bold**` wrappers and `<angle bracket>` wrappers from agent answers
+
+3. **`f4e7659`** — `prevent agent from introducing itself every response`
+   - Added FORMAT instruction: never introduce yourself or state that you are Gilvin's portfolio assistant at the start of a response
+
+4. **`c2bec62`** — `feat(agent): query rewriting + intent classification for context-aware retrieval`
+   - **Model upgrade:** `llama-3.1-8b-instant` → `llama-3.3-70b-versatile` for improved instruction following and factual accuracy
+   - **Stage 3.5 — Query rewriting:** Fetches last 4 messages from chat history (`agent_chat_history` for authenticated, `anon_chat_history` for anonymous users). Calls Groq to rewrite the user query into a self-contained search query (resolving pronouns and references) and classifies intent as `professional` or `casual`. Wrapped in try/catch — falls back to raw message and default `professional` intent on failure.
+   - **Embed step** now uses the rewritten query instead of the raw message for more accurate vector search
+   - **Intent-based system prompt:** Professional queries restrict answers to projects, skills, and work experience. Casual queries allow personal interests, hobbies, and life outside of work.
+   - **Result:** Context retention across conversation turns, personal errands no longer bleed into professional answers, contact info now retrieved correctly

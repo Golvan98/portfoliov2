@@ -89,12 +89,15 @@ export async function POST(request: Request) {
       remaining = quotaData[0].remaining
     }
 
+    const fastMode = process.env.GROQ_FAST_MODE === "true"
+    const groqModel = fastMode ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile"
+
     // 3.5. Query rewriting — resolve pronouns and classify intent using recent chat history
     let searchQuery = message.trim()
     let intent: "professional" | "casual" = "professional"
+    let history: { role: string; content: string }[] = []
 
     try {
-      let history: { role: string; content: string }[] = []
       if (user) {
         const { data } = await serviceClient
           .from("agent_chat_history")
@@ -120,7 +123,7 @@ export async function POST(request: Request) {
           .join("\n")
 
         const rewriteCompletion = await rewriteGroq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
+          model: groqModel,
           messages: [
             {
               role: "system",
@@ -155,7 +158,7 @@ Respond only in JSON: { "query": "rewritten query here", "intent": "professional
     const qEmbedding = await embedText(searchQuery)
 
     // 5. Similarity search — top K chunks via RPC
-    const topK = parseInt(process.env.AGENT_TOP_K ?? "8")
+    const topK = parseInt(process.env.AGENT_TOP_K ?? "16")
     const { data: chunks, error: searchErr } = await serviceClient.rpc(
       "match_knowledge_chunks",
       {
@@ -173,9 +176,60 @@ Respond only in JSON: { "query": "rewritten query here", "intent": "professional
       )
     }
 
+    let workExperienceChunks: typeof chunks = []
+    if (intent === "professional") {
+      const { data: weDocs } = await serviceClient
+        .from("knowledge_docs")
+        .select("id, title, source_type, updated_at, content")
+        .eq("owner_id", user?.id ?? "")
+        .eq("source_type", "work_experience")
+
+      if (weDocs) {
+        workExperienceChunks = weDocs.map(doc => ({
+          chunk_text: doc.content,
+          doc_id: doc.id,
+          chunk_index: 0,
+          title: doc.title,
+          source_type: doc.source_type,
+          updated_at: doc.updated_at
+        }))
+      }
+    }
+
+    let softwareProjectChunks: typeof chunks = []
+    if (intent === "professional") {
+      const { data: projDocs } = await serviceClient
+        .from("knowledge_docs")
+        .select("id, title, source_type, updated_at, content")
+        .eq("owner_id", user?.id ?? "")
+        .eq("source_type", "project")
+
+      if (projDocs) {
+        softwareProjectChunks = projDocs.map(doc => ({
+          chunk_text: doc.content,
+          doc_id: doc.id,
+          chunk_index: 0,
+          title: doc.title,
+          source_type: doc.source_type,
+          updated_at: doc.updated_at
+        }))
+      }
+    }
+
+    const allChunks = [
+      ...workExperienceChunks,
+      ...softwareProjectChunks,
+      ...(chunks ?? []).filter(c =>
+        !workExperienceChunks.some(w => w.doc_id === c.doc_id) &&
+        !softwareProjectChunks.some(p => p.doc_id === c.doc_id)
+      )
+    ]
+
+    const cappedChunks = fastMode ? allChunks.slice(0, 8) : allChunks
+
     // 6. Build system prompt with retrieved sources
     const sourcesText =
-      (chunks ?? [])
+      cappedChunks
         .map(
           (c: any, i: number) =>
             `[${i + 1}] Title: ${c.title} | Type: ${c.source_type} | Updated: ${c.updated_at}\nContent: ${c.chunk_text}`
@@ -204,6 +258,7 @@ FORMAT:
 - When referencing source titles, never wrap them in angle brackets. Write them as plain text only (e.g., "About Gilvin Zalsos", not "<About Gilvin Zalsos>").
 - When listing items, always use the "•" bullet character. Never use asterisks ("*") for bullets.
 - Never introduce yourself or state that you are Gilvin's portfolio assistant at the start of a response. Get straight to answering the question.
+- Never cite sources inline within sentences using phrases like "From Project: X" or "From About Gilvin Zalsos". Use the source content to inform your answer but do not reference where it came from mid-sentence. Sources are displayed separately to the user.
 
 INTENT:
 ${intent === "casual"
@@ -218,10 +273,18 @@ ${sourcesText}`
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" })
 
+    const cleanedHistory = history.map(m => ({
+      ...m,
+      content: m.role === "assistant"
+        ? m.content.replace(/^Gilvin's portfolio assistant here[.,]?\s*/i, '').trim()
+        : m.content
+    }))
+
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      model: groqModel,
       messages: [
         { role: "system", content: systemPrompt },
+        ...cleanedHistory.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
         { role: "user", content: message.trim() },
       ],
       max_tokens: maxTokens,
@@ -234,6 +297,11 @@ ${sourcesText}`
       .replace(/\[\d+\]/g, '')
       .replace(/\*\*(.*?)\*\*/g, '$1')
       .replace(/<([^>]+)>/g, '$1')
+      .replace(/^(I am|I'm) Gilvin's portfolio assistant[.,]?\s*/i, '')
+      .replace(/^Gilvin's portfolio assistant here[.,]?\s*/i, '')
+      .replace(/^Hello,?\s*(I am|I'm) Gilvin's portfolio assistant[.,]?\s*/i, '')
+      .replace(/From [^:]+:\s*/g, '')
+      .replace(/\*/g, '•')
       .trim()
 
     // 8. Build sources array for the client
