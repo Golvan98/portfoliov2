@@ -141,6 +141,7 @@ FORMAT:
 - Keep responses concise and recruiter-friendly.
 - When referencing source titles, never wrap them in angle brackets. Write them as plain text only (e.g., "About Gilvin Zalsos", not "<About Gilvin Zalsos>").
 - When listing items, always use the "•" bullet character. Never use asterisks ("*") for bullets.
+- Never introduce yourself or state that you are Gilvin's portfolio assistant at the start of a response. Get straight to answering the question.
 
 SOURCES:
 ${sourcesText}`
@@ -151,7 +152,7 @@ ${sourcesText}`
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" })
 
     const completion = await groq.chat.completions.create({
-      model: "llama-3.1-8b-instant",
+      model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: message.trim() },
