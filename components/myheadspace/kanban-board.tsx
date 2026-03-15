@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Textarea } from "@/components/ui/textarea"
 import { TaskCard } from "./task-card"
 import type { Task } from "@/lib/types"
 
@@ -26,10 +27,12 @@ interface KanbanBoardProps {
   isAdmin: boolean
   projectTabs: { id: string; name: string }[]
   activeProjectId: string | null
+  activeProjectDescription: string | null
   activeCategoryId: string | null
   onSelectProject: (projectId: string) => void
-  onCreateProject: (categoryId: string | null, title: string) => Promise<void>
+  onCreateProject: (categoryId: string | null, title: string, description?: string) => Promise<void>
   onRenameProject: (id: string, title: string) => Promise<void>
+  onUpdateDescription: (id: string, description: string | null) => Promise<void>
   onDeleteProject: (id: string) => Promise<void>
   onCreateTask: (title: string, status: string) => Promise<void>
   onRenameTask: (id: string, title: string) => Promise<void>
@@ -55,10 +58,12 @@ export function KanbanBoard({
   isAdmin,
   projectTabs,
   activeProjectId,
+  activeProjectDescription,
   activeCategoryId,
   onSelectProject,
   onCreateProject,
   onRenameProject,
+  onUpdateDescription,
   onDeleteProject,
   onCreateTask,
   onRenameTask,
@@ -70,12 +75,16 @@ export function KanbanBoard({
   const [editProjectValue, setEditProjectValue] = useState("")
   const [isCreatingProject, setIsCreatingProject] = useState(false)
   const [newProjectTitle, setNewProjectTitle] = useState("")
+  const [newProjectDescription, setNewProjectDescription] = useState("")
   const [creatingInColumn, setCreatingInColumn] = useState<TaskStatus | null>(null)
   const [newTaskTitle, setNewTaskTitle] = useState("")
+  const [editingDescription, setEditingDescription] = useState(false)
+  const [descriptionValue, setDescriptionValue] = useState("")
 
   const projInputRef = useRef<HTMLInputElement>(null)
   const newProjInputRef = useRef<HTMLInputElement>(null)
   const newTaskInputRef = useRef<HTMLInputElement>(null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const submittingRef = useRef(false)
 
   useEffect(() => {
@@ -87,6 +96,12 @@ export function KanbanBoard({
   useEffect(() => {
     if (creatingInColumn) newTaskInputRef.current?.focus()
   }, [creatingInColumn])
+  useEffect(() => {
+    setEditingDescription(false)
+  }, [activeProjectId])
+  useEffect(() => {
+    if (editingDescription) descriptionRef.current?.focus()
+  }, [editingDescription])
 
   function guardToast() {
     if (!isAdmin) {
@@ -128,18 +143,20 @@ export function KanbanBoard({
     submittingRef.current = true
     try {
       if (newProjectTitle.trim()) {
-        await onCreateProject(activeCategoryId, newProjectTitle.trim())
+        await onCreateProject(activeCategoryId, newProjectTitle.trim(), newProjectDescription.trim() || undefined)
       }
     } finally {
       submittingRef.current = false
     }
     setIsCreatingProject(false)
     setNewProjectTitle("")
+    setNewProjectDescription("")
   }
 
   function cancelCreateProject() {
     setIsCreatingProject(false)
     setNewProjectTitle("")
+    setNewProjectDescription("")
   }
 
   // --- New task in column ---
@@ -166,6 +183,28 @@ export function KanbanBoard({
   function cancelCreateTask() {
     setCreatingInColumn(null)
     setNewTaskTitle("")
+  }
+
+  // --- Description inline editing ---
+  function startEditDescription() {
+    if (guardToast()) return
+    setEditingDescription(true)
+    setDescriptionValue(activeProjectDescription ?? "")
+  }
+
+  async function commitDescription() {
+    if (activeProjectId) {
+      const newDesc = descriptionValue.trim() || null
+      if (newDesc !== activeProjectDescription) {
+        await onUpdateDescription(activeProjectId, newDesc)
+      }
+    }
+    setEditingDescription(false)
+  }
+
+  function cancelEditDescription() {
+    setEditingDescription(false)
+    setDescriptionValue("")
   }
 
   const filtered = tasks.filter((t) =>
@@ -240,18 +279,36 @@ export function KanbanBoard({
 
         {/* New project tab */}
         {isCreatingProject ? (
-          <Input
-            ref={newProjInputRef}
-            value={newProjectTitle}
-            onChange={(e) => setNewProjectTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") commitCreateProject()
-              if (e.key === "Escape") cancelCreateProject()
+          <div
+            className="flex flex-col gap-1"
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                commitCreateProject()
+              }
             }}
-            onBlur={commitCreateProject}
-            placeholder="Project name..."
-            className="h-7 w-32 text-sm"
-          />
+          >
+            <Input
+              ref={newProjInputRef}
+              value={newProjectTitle}
+              onChange={(e) => setNewProjectTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitCreateProject()
+                if (e.key === "Escape") cancelCreateProject()
+              }}
+              placeholder="Project name..."
+              className="h-7 w-48 text-sm"
+            />
+            <Textarea
+              value={newProjectDescription}
+              onChange={(e) => setNewProjectDescription(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") cancelCreateProject()
+              }}
+              placeholder="Description (optional)"
+              rows={2}
+              className="min-h-0 w-48 resize-none text-sm"
+            />
+          </div>
         ) : (
           <Button
             variant="ghost"
@@ -264,6 +321,37 @@ export function KanbanBoard({
           </Button>
         )}
       </div>
+
+      {/* Project description */}
+      {activeProjectId && (activeProjectDescription || isAdmin) && (
+        <div className="px-4 pt-1.5 pb-0.5">
+          {editingDescription ? (
+            <Textarea
+              ref={descriptionRef}
+              value={descriptionValue}
+              onChange={(e) => setDescriptionValue(e.target.value)}
+              onBlur={commitDescription}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") cancelEditDescription()
+              }}
+              placeholder="Add a description..."
+              rows={2}
+              className="min-h-0 resize-none text-sm"
+            />
+          ) : (
+            <p
+              onClick={isAdmin ? startEditDescription : undefined}
+              className={`text-sm whitespace-pre-wrap ${
+                activeProjectDescription
+                  ? "text-muted-foreground"
+                  : "italic text-muted-foreground/50"
+              } ${isAdmin ? "cursor-pointer hover:text-foreground dark:hover:text-white" : ""}`}
+            >
+              {activeProjectDescription || "No description yet. Click to add one."}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Search bar */}
       <div className="px-4 py-3">

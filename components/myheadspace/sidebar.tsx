@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 export interface SidebarProject {
   id: string
@@ -36,7 +37,7 @@ interface SidebarProps {
   onCreateCategory: (name: string) => Promise<void>
   onRenameCategory: (id: string, name: string) => Promise<void>
   onDeleteCategory: (id: string) => Promise<void>
-  onCreateProject: (categoryId: string, title: string) => Promise<void>
+  onCreateProject: (categoryId: string, title: string, description?: string) => Promise<void>
   onRenameProject: (id: string, title: string) => Promise<void>
   onDeleteProject: (id: string) => Promise<void>
 }
@@ -69,6 +70,7 @@ export function Sidebar({
   const [newCategoryName, setNewCategoryName] = useState("")
   const [creatingInCategoryId, setCreatingInCategoryId] = useState<string | null>(null)
   const [newProjectTitle, setNewProjectTitle] = useState("")
+  const [newProjectDescription, setNewProjectDescription] = useState("")
 
   const catInputRef = useRef<HTMLInputElement>(null)
   const projInputRef = useRef<HTMLInputElement>(null)
@@ -210,18 +212,20 @@ export function Sidebar({
     submittingRef.current = true
     try {
       if (creatingInCategoryId && newProjectTitle.trim()) {
-        await onCreateProject(creatingInCategoryId, newProjectTitle.trim())
+        await onCreateProject(creatingInCategoryId, newProjectTitle.trim(), newProjectDescription.trim() || undefined)
       }
     } finally {
       submittingRef.current = false
     }
     setCreatingInCategoryId(null)
     setNewProjectTitle("")
+    setNewProjectDescription("")
   }
 
   function cancelCreateProject() {
     setCreatingInCategoryId(null)
     setNewProjectTitle("")
+    setNewProjectDescription("")
   }
 
   return (
@@ -388,7 +392,14 @@ export function Sidebar({
 
                   {/* Inline new project input */}
                   {creatingInCategoryId === category.id && (
-                    <div className="mx-1">
+                    <div
+                      className="mx-1 flex flex-col gap-1"
+                      onBlur={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          commitCreateProject()
+                        }
+                      }}
+                    >
                       <Input
                         ref={newProjInputRef}
                         value={newProjectTitle}
@@ -397,9 +408,18 @@ export function Sidebar({
                           if (e.key === "Enter") commitCreateProject()
                           if (e.key === "Escape") cancelCreateProject()
                         }}
-                        onBlur={commitCreateProject}
                         placeholder="Project name..."
                         className="h-7 text-sm"
+                      />
+                      <Textarea
+                        value={newProjectDescription}
+                        onChange={(e) => setNewProjectDescription(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") cancelCreateProject()
+                        }}
+                        placeholder="Description (optional)"
+                        rows={2}
+                        className="min-h-0 resize-none text-xs"
                       />
                     </div>
                   )}

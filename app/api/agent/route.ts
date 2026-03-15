@@ -139,6 +139,8 @@ GROUNDING:
 FORMAT:
 - Lead with a direct answer, then add 2–5 bullet points if helpful.
 - Keep responses concise and recruiter-friendly.
+- When referencing source titles, never wrap them in angle brackets. Write them as plain text only (e.g., "About Gilvin Zalsos", not "<About Gilvin Zalsos>").
+- When listing items, always use the "•" bullet character. Never use asterisks ("*") for bullets.
 
 SOURCES:
 ${sourcesText}`
@@ -160,6 +162,7 @@ ${sourcesText}`
     const answer =
       completion.choices[0]?.message?.content ??
       "I couldn't generate a response."
+    const cleanedAnswer = answer.replace(/\[\d+\]/g, '').trim()
 
     // 8. Build sources array for the client
     const sources = (chunks ?? []).map((c: any) => ({
@@ -178,7 +181,7 @@ ${sourcesText}`
           .from("agent_chat_history")
           .insert([
             { user_id: user.id, role: "user", content: message.trim(), sources: [] },
-            { user_id: user.id, role: "assistant", content: answer, sources },
+            { user_id: user.id, role: "assistant", content: cleanedAnswer, sources },
           ])
         if (histErr) console.error("Failed to save agent chat history:", histErr)
       } catch (e) {
@@ -190,7 +193,7 @@ ${sourcesText}`
           .from("anon_chat_history")
           .insert([
             { hashed_ip: ipHash, role: "user", content: message.trim(), sources: [] },
-            { hashed_ip: ipHash, role: "assistant", content: answer, sources },
+            { hashed_ip: ipHash, role: "assistant", content: cleanedAnswer, sources },
           ])
         if (histErr) console.error("Failed to save anon chat history:", histErr)
       } catch (e) {
@@ -199,7 +202,7 @@ ${sourcesText}`
     }
 
     const testingMode = process.env.TESTING_MODE === "on"
-    return NextResponse.json({ answer, sources: testingMode ? sources : [], remaining })
+    return NextResponse.json({ answer: cleanedAnswer, sources: testingMode ? sources : [], remaining })
   } catch (err) {
     console.error("Agent route error:", err)
     return NextResponse.json(

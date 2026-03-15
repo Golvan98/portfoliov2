@@ -236,11 +236,11 @@ export function Workspace({
   }
 
   // --- Project CRUD ---
-  async function createProject(categoryId: string | null, title: string) {
+  async function createProject(categoryId: string | null, title: string, description?: string) {
     if (guard()) return
     const { data, error } = await createClient()
       .from("projects")
-      .insert({ owner_id: userId!, category_id: categoryId, title })
+      .insert({ owner_id: userId!, category_id: categoryId, title, description: description?.trim() || null })
       .select()
       .single()
     if (error || !data) {
@@ -302,6 +302,39 @@ export function Workspace({
         title,
         categoryName: getCategoryName(project?.category_id ?? null),
         description: project?.description ?? null,
+        updatedAt: now,
+        taskSummary,
+      })
+      await syncKnowledgeDoc({
+        sourceType: "project",
+        sourceId: id,
+        title: blob.title,
+        content: blob.content,
+        ownerId: userId!,
+      })
+    } catch { /* non-blocking */ }
+    await refetchProjects()
+  }
+
+  async function updateProjectDescription(id: string, description: string | null) {
+    if (guard()) return
+    const now = new Date().toISOString()
+    const { error } = await createClient()
+      .from("projects")
+      .update({ description, updated_at: now })
+      .eq("id", id)
+    if (error) {
+      toast.error("Failed to update description")
+      return
+    }
+    // RAG sync
+    try {
+      const project = projects.find((p) => p.id === id)
+      const taskSummary = await getTaskSummary(id)
+      const blob = buildProjectContent({
+        title: project?.title ?? "",
+        categoryName: getCategoryName(project?.category_id ?? null),
+        description,
         updatedAt: now,
         taskSummary,
       })
@@ -656,10 +689,12 @@ export function Workspace({
           isAdmin={isAdmin}
           projectTabs={projectTabs}
           activeProjectId={activeProjectId}
+          activeProjectDescription={activeProject?.description ?? null}
           activeCategoryId={activeCategoryId}
           onSelectProject={handleSelectProject}
           onCreateProject={createProject}
           onRenameProject={renameProject}
+          onUpdateDescription={updateProjectDescription}
           onDeleteProject={deleteProject}
           onCreateTask={createTask}
           onRenameTask={renameTask}
