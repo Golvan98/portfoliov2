@@ -162,7 +162,11 @@ ${sourcesText}`
     const answer =
       completion.choices[0]?.message?.content ??
       "I couldn't generate a response."
-    const cleanedAnswer = answer.replace(/\[\d+\]/g, '').trim()
+    const cleanedAnswer = answer
+      .replace(/\[\d+\]/g, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/<([^>]+)>/g, '$1')
+      .trim()
 
     // 8. Build sources array for the client
     const sources = (chunks ?? []).map((c: any) => ({

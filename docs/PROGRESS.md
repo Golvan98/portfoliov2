@@ -7,7 +7,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ## Current Status
 
-**Last updated:** March 6, 2026
+**Last updated:** March 15, 2026
 **Deployed at:** https://portfoliov2-three-liard.vercel.app
 **GitHub:** https://github.com/Golvan98/portfoliov2
 **Supabase project ID:** liqlzqrylfhuuxqbyjho
@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Gemini embedding (`gemini-embedding-001`, 768 dims), pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.1-8b-instant` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold. Post-processing strips `[n]` citation markers from answers before returning to client and before persisting to chat history. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
@@ -47,9 +47,9 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`/api/embed`** — Background embedding job: finds `needs_embedding=true` docs, chunks, embeds via Gemini (`gemini-embedding-001`, 768 dims), stores vectors
 
 ### Key Components
-- **`workspace.tsx`** (~640 lines) — Full MyHeadSpace CRUD: categories, projects, tasks, task_notes. Admin guard (toast on unauthorized mutation). RAG sync on every CRUD op (non-blocking). Project docs include task status summaries; parent project re-synced on task create/delete/status change.
-- **`kanban-board.tsx`** (345 lines) — 3-column kanban (To Do / In Progress / Done) with inline editing
-- **`sidebar.tsx`** (422 lines) — Category tree with expandable projects, inline editing
+- **`workspace.tsx`** (~717 lines) — Full MyHeadSpace CRUD: categories, projects, tasks, task_notes. Admin guard (toast on unauthorized mutation). RAG sync on every CRUD op (non-blocking). Project docs include task status summaries; parent project re-synced on task create/delete/status change. `updateProjectDescription()` updates description in DB and triggers immediate RAG sync.
+- **`kanban-board.tsx`** (~446 lines) — 3-column kanban (To Do / In Progress / Done) with inline editing. Displays project description below tabs with click-to-edit (admin) and muted placeholder when empty.
+- **`sidebar.tsx`** (~465 lines) — Category tree with expandable projects, inline editing. Project creation form includes optional description textarea.
 - **`task-card.tsx`** (155 lines) — Individual task card with status dropdown, edit, delete
 - **`task-details.tsx`** (115 lines) — Right panel showing task info and notes textarea
 - **`chat-widget.tsx`** (~365 lines) — Floating agent UI with persistent chat history (last 20 messages loaded on mount for logged-in users), source citations (relative dates via `timeAgo()`), quota display, auth modal trigger
@@ -254,5 +254,33 @@ Landing page polish and activity feed message overhaul.
    - Added `statusLabel()` helper and `entity_type: "category"` to the `logActivity` type union
    - Updated `activity-feed.tsx` and `activity-list.tsx` to render `entity_title` directly instead of constructing messages from separate action/type/title parts — removed the now-unused `actionVerbs` map
 
-### Uncommitted changes (in progress):
-- Further refinement of task `entity_title` messages: added "project" prefix before project names (e.g., "from project X" instead of "from X"), removed redundant "task" from delete message ("deleted ..." instead of "deleted task ...")
+3. **`b7453ab`** — `update project description in landing page`
+   - Added `description` prop to `project-card.tsx`, updated `projects-section.tsx` with project descriptions
+   - Refined task `entity_title` messages in `workspace.tsx`: added "project" prefix before project names, removed redundant "task" from delete message
+4. **`bc82520`** — `add image to about me`
+   - Added Gilvin's photo (`public/images/gilvin.jpg`) to the About section and hero
+5. **`11e1728`** — `update about me`
+   - Minor copy update in About section
+
+---
+
+## Session Log — March 15, 2026
+
+Agent output quality improvements and MyHeadSpace project description feature.
+
+### Commits pushed today:
+1. **`669a58f`** — `feat(myheadspace): add project description field with inline edit and RAG sync`
+
+   **Agent response post-processing:**
+   - Strips `[n]` citation markers (e.g., `[1]`, `[2]`) from all agent answers via regex (`/\[\d+\]/g`) before returning to client and before persisting to `agent_chat_history` / `anon_chat_history`
+
+   **Agent system prompt — FORMAT instructions updated:**
+   - Never wrap source titles in angle brackets (plain text only)
+   - Never use asterisk (`*`) bullets — use `•` character instead
+   - Never use markdown bold formatting
+
+   **MyHeadSpace projects — `description` field:**
+   - **Creation:** Both sidebar and kanban board inline creation forms now include an optional `description` textarea below the project name input. Container-level `onBlur` prevents premature submit when tabbing between fields. Empty descriptions insert as `null`.
+   - **Display:** Project description shown between the tab bar and search bar on the kanban board. If no description exists, admins see a muted placeholder "No description yet. Click to add one." Non-admins see nothing when empty.
+   - **Edit in place:** Clicking the description (admin only) opens an inline textarea. On blur, `onUpdateDescription` calls `updateProjectDescription()` in `workspace.tsx`, which updates the `projects` row and triggers an immediate RAG sync.
+   - **RAG sync confirmed:** `buildProjectContent()` in `lib/rag/sync-knowledge-doc.ts` already included `Description: ${p.description ?? ""}` in the embedded content string — no changes needed there.
