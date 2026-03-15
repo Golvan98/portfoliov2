@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC, Groq `llama-3.3-70b-versatile` answer generation. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction. Post-processing strips `[n]` citation markers, `**bold**` wrappers, and `<angle brackets>` from answers before returning to client and before persisting to chat history. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), guaranteed fetch of all `work_experience` and `project` docs on professional queries (deduplicated with vector results), Groq `llama-3.3-70b-versatile` answer generation with conversation history (last 4 turns) passed to main LLM call. `GROQ_FAST_MODE` env toggle switches to `llama-3.1-8b-instant` with chunk cap of 8. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
@@ -83,7 +83,8 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - ✅ `EMBED_SECRET` — set
 - ✅ `TESTING_MODE` — set (`on` for local dev; when `off`/unset, source citations hidden from response)
 - ✅ Chunking config (`CHUNK_MIN_CHARS_BEFORE_SPLIT`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`) — set
-- ✅ Agent config (`AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TOP_K`, `AGENT_USER_DAILY_LIMIT`, `AGENT_ANON_DAILY_LIMIT`) — set
+- ✅ Agent config (`AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TOP_K` default 16, `AGENT_USER_DAILY_LIMIT`, `AGENT_ANON_DAILY_LIMIT`) — set
+- ✅ `GROQ_FAST_MODE` — optional (`true` switches to `llama-3.1-8b-instant` with chunk cap of 8; unset defaults to `llama-3.3-70b-versatile`)
 - ⚠️ `testgclientid` and `testgsecret` — stale test values still present (should be removed)
 
 ---
@@ -297,3 +298,31 @@ Agent output quality improvements and MyHeadSpace project description feature.
    - **Embed step** now uses the rewritten query instead of the raw message for more accurate vector search
    - **Intent-based system prompt:** Professional queries restrict answers to projects, skills, and work experience. Casual queries allow personal interests, hobbies, and life outside of work.
    - **Result:** Context retention across conversation turns, personal errands no longer bleed into professional answers, contact info now retrieved correctly
+
+5. **`c34780d`** — `feat(agent): context-aware RAG pipeline with query rewriting, history, intent classification, and response cleanup`
+
+   **Agent pipeline overhaul:**
+   - Conversation history (last 4 turns) now passed to main LLM call in Stage 7 — gives the LLM memory of prior conversation
+   - History variable hoisted above try/catch for scope accessibility
+   - `GROQ_FAST_MODE` env toggle: when `true`, switches both query rewriting and main LLM calls to `llama-3.1-8b-instant`; otherwise defaults to `llama-3.3-70b-versatile`
+   - Top K default bumped from 8 to 16 (`AGENT_TOP_K` fallback)
+   - Guaranteed fetch for all `work_experience` docs on professional queries (always included in context)
+   - Guaranteed fetch for all `project` docs on professional queries (always included in context)
+   - `allChunks` merges guaranteed docs with vector search results, deduplicating by `doc_id`
+   - `cappedChunks` limits total chunks to 8 in fast mode to stay within 8b token limits
+
+   **Response cleanup (post-processing chain on `cleanedAnswer`):**
+   - Strip `[n]` citation markers
+   - Strip `**bold**` markdown
+   - Strip `<>` angle brackets
+   - Strip self-introduction phrases ("I am Gilvin's portfolio assistant", "Gilvin's portfolio assistant here", "Hello I'm Gilvin's portfolio assistant")
+   - Strip inline "From X:" mid-sentence citations
+   - Replace `*` bullets with `•`
+   - History messages also cleaned of self-introduction phrases before being passed to the LLM
+
+   **System prompt updates:**
+   - No inline source citations — sources displayed separately to user
+   - Intent-based instruction injected dynamically based on query classification
+
+   **Bug fixes:**
+   - Chat bubble URL overflow fixed with `break-words` Tailwind class in `chat-widget.tsx`

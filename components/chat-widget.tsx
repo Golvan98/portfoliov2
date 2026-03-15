@@ -143,7 +143,7 @@ export function ChatWidget() {
           {
             id: idCounter + 1,
             role: "agent",
-            text: "Sorry, something went wrong. Please try again.",
+            text: "Sorry, I've hit my daily token limit — Gilvin runs this on Groq's free tier API keys to keep costs lean. The limit resets daily, so try again tomorrow!",
           },
         ])
         setIdCounter((c) => c + 2)
@@ -245,7 +245,7 @@ export function ChatWidget() {
                           : "bg-muted text-foreground dark:bg-white/[0.06]"
                       }`}
                     >
-                      <span className="whitespace-pre-wrap">{msg.text}</span>
+                      <span className="whitespace-pre-wrap break-words">{msg.text}</span>
                     </div>
                   </div>
                   {/* Source citations below agent messages */}
