@@ -29,6 +29,22 @@ async function embedText(text: string): Promise<number[]> {
   return data.embedding.values
 }
 
+async function callGroqWithFallback(
+  keys: string[],
+  params: Parameters<Groq['chat']['completions']['create']>[0]
+) {
+  for (const key of keys) {
+    try {
+      const groq = new Groq({ apiKey: key })
+      return await groq.chat.completions.create(params)
+    } catch (err: any) {
+      if (err?.status === 429) continue
+      throw err
+    }
+  }
+  throw new Error("All Groq API keys exhausted")
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -89,6 +105,12 @@ export async function POST(request: Request) {
       remaining = quotaData[0].remaining
     }
 
+    const groqKeys = [
+      process.env.GROQ_API_KEY,
+      process.env.GROQ_API_KEY_2,
+      process.env.GROQ_API_KEY_3,
+    ].filter(Boolean) as string[]
+
     const fastMode = process.env.GROQ_FAST_MODE === "true"
     const groqModel = fastMode ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile"
 
@@ -117,12 +139,11 @@ export async function POST(request: Request) {
       }
 
       if (history.length > 0) {
-        const rewriteGroq = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" })
         const historyText = history
           .map((m) => `${m.role}: ${m.content}`)
           .join("\n")
 
-        const rewriteCompletion = await rewriteGroq.chat.completions.create({
+        const rewriteCompletion = await callGroqWithFallback(groqKeys, {
           model: groqModel,
           messages: [
             {
@@ -271,8 +292,6 @@ ${sourcesText}`
     // 7. Call Groq chat completion
     const maxTokens = parseInt(process.env.AGENT_MAX_OUTPUT_TOKENS ?? "400")
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY ?? "" })
-
     const cleanedHistory = history.map(m => ({
       ...m,
       content: m.role === "assistant"
@@ -280,7 +299,7 @@ ${sourcesText}`
         : m.content
     }))
 
-    const completion = await groq.chat.completions.create({
+    const completion = await callGroqWithFallback(groqKeys, {
       model: groqModel,
       messages: [
         { role: "system", content: systemPrompt },

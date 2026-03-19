@@ -7,7 +7,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ## Current Status
 
-**Last updated:** March 15, 2026
+**Last updated:** March 20, 2026
 **Deployed at:** https://portfoliov2-three-liard.vercel.app
 **GitHub:** https://github.com/Golvan98/portfoliov2
 **Supabase project ID:** liqlzqrylfhuuxqbyjho
@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), guaranteed fetch of all `work_experience` and `project` docs on professional queries (deduplicated with vector results), Groq `llama-3.3-70b-versatile` answer generation with conversation history (last 4 turns) passed to main LLM call. `GROQ_FAST_MODE` env toggle switches to `llama-3.1-8b-instant` with chunk cap of 8. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), guaranteed fetch of all `work_experience` and `project` docs on professional queries (deduplicated with vector results), Groq `llama-3.3-70b-versatile` answer generation with conversation history (last 4 turns) passed to main LLM call. `GROQ_FAST_MODE` env toggle switches to `llama-3.1-8b-instant` with chunk cap of 8. **Groq API key rotation:** `callGroqWithFallback()` helper cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` on 429 rate limit errors, effectively tripling the daily token budget from 100k to 300k TPD. Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) use `callGroqWithFallback`. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
@@ -79,7 +79,9 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY` — set
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` — set
 - ✅ `GEMINI_API_KEY` — set (used for embeddings only)
-- ✅ `GROQ_API_KEY` — set (used for agent chat completion)
+- ✅ `GROQ_API_KEY` — set (used for agent chat completion, primary key)
+- ✅ `GROQ_API_KEY_2` — set (second Groq key for 429 fallback rotation)
+- ✅ `GROQ_API_KEY_3` — set (third Groq key for 429 fallback rotation)
 - ✅ `EMBED_SECRET` — set
 - ✅ `TESTING_MODE` — set (`on` for local dev; when `off`/unset, source citations hidden from response)
 - ✅ Chunking config (`CHUNK_MIN_CHARS_BEFORE_SPLIT`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`) — set
@@ -119,7 +121,7 @@ The following intentional changes were made via recent commits and differ from A
 
 3. **Stale test OAuth credentials in `.env.local`** — Lines `testgclientid` and `testgsecret` are unused test values that should be removed for hygiene.
 
-4. **Vercel env vars may be stale.** `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set locally but may not be set in Vercel's environment. The deployed site's agent/embed endpoints will fail if these aren't mirrored to Vercel.
+4. **Vercel env vars may be stale.** `GEMINI_API_KEY`, `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, and `EMBED_SECRET` are set locally and in Vercel's environment. Verify all are present if agent/embed endpoints fail after redeployment.
 
 ### Low — Nice to Have
 
@@ -152,7 +154,7 @@ The following intentional changes were made via recent commits and differ from A
 6. Trigger re-embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: 461d55ba99cf7857075d1a79ee705c1b2ac385c797e02d5495442883a5f43722"`
 
 **To sync Vercel deployment:**
-7. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables)
+7. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables) — all confirmed set as of March 20
 
 **Cleanup:**
 8. Remove `testgclientid` and `testgsecret` lines from `.env.local`
@@ -326,3 +328,19 @@ Agent output quality improvements and MyHeadSpace project description feature.
 
    **Bug fixes:**
    - Chat bubble URL overflow fixed with `break-words` Tailwind class in `chat-widget.tsx`
+
+---
+
+## Session Log — March 20, 2026
+
+Groq API key rotation to increase rate limit headroom.
+
+### Changes (uncommitted):
+1. **Groq API key rotation with 429 fallback**
+   - Added `callGroqWithFallback()` helper in `/api/agent/route.ts` that cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` env vars in order
+   - On 429 (rate limit) errors, retries with the next key; bails immediately on all other errors
+   - Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) now use `callGroqWithFallback` instead of a single Groq instance
+   - Effectively triples the daily token budget from 100k to 300k TPD before hitting rate limits
+
+### Env vars added:
+- `GROQ_API_KEY_2` and `GROQ_API_KEY_3` added to both `.env.local` and Vercel environment variables
