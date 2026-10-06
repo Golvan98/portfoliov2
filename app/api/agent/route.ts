@@ -3,6 +3,16 @@ import { NextResponse } from "next/server"
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server"
 import Groq from "groq-sdk"
 
+function aiUnavailableResponse(status = 503) {
+  return NextResponse.json(
+    {
+      error: "ai_unavailable",
+      message: "The AI assistant is temporarily unavailable. Please try again shortly.",
+    },
+    { status }
+  )
+}
+
 function hashIP(ip: string): string {
   return createHash("sha256").update(ip).digest("hex")
 }
@@ -33,16 +43,20 @@ async function callGroqWithFallback(
   keys: string[],
   params: Parameters<Groq['chat']['completions']['create']>[0]
 ) {
+  let lastRateLimitError: unknown
   for (const key of keys) {
     try {
       const groq = new Groq({ apiKey: key })
       return await groq.chat.completions.create(params)
-    } catch (err: any) {
-      if (err?.status === 429) continue
+    } catch (err) {
+      if (err instanceof Groq.APIError && err.status === 429) {
+        lastRateLimitError = err
+        continue
+      }
       throw err
     }
   }
-  throw new Error("All Groq API keys exhausted")
+  throw lastRateLimitError
 }
 
 export async function POST(request: Request) {
@@ -84,10 +98,7 @@ export async function POST(request: Request) {
       )
 
       if (quotaErr || !quotaData?.[0]) {
-        return NextResponse.json(
-          { error: "Quota check failed" },
-          { status: 500 }
-        )
+        return aiUnavailableResponse(500)
       }
 
       if (!quotaData[0].allowed) {
@@ -111,8 +122,15 @@ export async function POST(request: Request) {
       process.env.GROQ_API_KEY_3,
     ].filter(Boolean) as string[]
 
+    if (groqKeys.length === 0) {
+      console.error("Agent route error: missing_configuration")
+      return aiUnavailableResponse()
+    }
+
     const fastMode = process.env.GROQ_FAST_MODE === "true"
-    const groqModel = fastMode ? "llama-3.1-8b-instant" : "llama-3.3-70b-versatile"
+    const groqModel = fastMode
+      ? process.env.GROQ_FAST_MODEL || "openai/gpt-oss-20b"
+      : process.env.GROQ_MODEL || "openai/gpt-oss-120b"
 
     // 3.5. Query rewriting — resolve pronouns and classify intent using recent chat history
     let searchQuery = message.trim()
@@ -191,10 +209,7 @@ Respond only in JSON: { "query": "rewritten query here", "intent": "professional
 
     if (searchErr) {
       console.error("Similarity search error:", searchErr)
-      return NextResponse.json(
-        { error: "Search failed" },
-        { status: 500 }
-      )
+      return aiUnavailableResponse(500)
     }
 
     let workExperienceChunks: typeof chunks = []
@@ -363,10 +378,11 @@ ${sourcesText}`
     const testingMode = process.env.TESTING_MODE === "on"
     return NextResponse.json({ answer: cleanedAnswer, sources: testingMode ? sources : [], remaining })
   } catch (err) {
-    console.error("Agent route error:", err)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    const providerError = err instanceof Groq.APIError
+    const reason = providerError
+      ? err.status === 429 ? "provider_rate_limited" : "provider_error"
+      : "runtime_error"
+    console.error("Agent route error:", reason)
+    return aiUnavailableResponse(providerError ? 503 : 500)
   }
 }

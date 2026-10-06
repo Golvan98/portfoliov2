@@ -1,5 +1,7 @@
 # AI Agent Request Lifecycle — Full Pipeline Map
 
+The pipeline map below is an older snapshot. Current model selection and error handling are documented here for Sprint 1; the implementation's existing RAG behavior is unchanged. See [PROGRESS.md](PROGRESS.md) for the existing query rewriting and conversation-history behavior.
+
 ## Stage 1: User Message Sent (Client)
 
 **File:** `components/chat-widget.tsx:107` — `handleSend()`
@@ -76,9 +78,9 @@
 
 - **In:** `messages` array with exactly 2 items: `[system prompt, user message]`
 - **Out:** `completion.choices[0].message.content` — the raw LLM answer string
-- **Processing:** Calls **Groq API** using model `llama-3.1-8b-instant`. Max tokens capped by `AGENT_MAX_OUTPUT_TOKENS` (default `400`).
+- **Processing:** Calls **Groq API** through `groq-sdk`, using `GROQ_MODEL` (default `openai/gpt-oss-120b`) normally or `GROQ_FAST_MODEL` (default `openai/gpt-oss-20b`) when `GROQ_FAST_MODE=true`. These are optional overrides; GPT-OSS is hosted by Groq, not run locally. Stage 3.5 query rewriting and Stage 7 answer generation share this selection and `callGroqWithFallback()`, which tries `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` on HTTP 429. Multiple keys may share quotas. Max tokens remain capped by `AGENT_MAX_OUTPUT_TOKENS` (default `400`).
 - **GAP: No conversation history sent to LLM.** Each request is stateless — only `[system, current_user_message]`. The agent cannot reference prior turns. This is the biggest architectural gap.
-- **GAP: Spec drift** — `AGENT_SPEC.md` says the chat model is `gemini-2.0-flash`, but the actual implementation uses Groq's `llama-3.1-8b-instant`.
+- **Model documentation:** [AGENT_SPEC.md](AGENT_SPEC.md) and [ENV.md](ENV.md) document the Groq-hosted GPT-OSS defaults and optional overrides.
 
 ---
 
@@ -115,8 +117,8 @@
 - **In:** JSON response `{ answer, sources, remaining }`
 - **Out:** New `Message` object appended to local state
 - **Processing:**
-  1. Handles 429 (quota exceeded) → sets `quotaExceeded` state, shows limit message
-  2. Handles non-OK → generic error message
+  1. Handles HTTP 429 with `error: "quota_exceeded"` → sets `quotaExceeded` state, shows the visitor question-limit message
+  2. Handles other non-OK responses → safe backend message, falling back to "The AI assistant is temporarily unavailable. Please try again shortly." Provider/runtime failures return `error: "ai_unavailable"`; network failures retain their separate message.
   3. On success → appends agent message with `data.answer` and `data.sources`
   4. Updates `remaining` counter for UI nudge bar
   5. Source citations rendered below agent bubbles: filtered (excludes `Task:` titles), deduplicated by `doc_id`, capped at 4, with relative timestamps via `timeAgo()`
@@ -141,5 +143,4 @@ This is a separate pipeline that populates the vector store:
 | **No query rewriting** | `route.ts:93` | Raw message is embedded; "tell me more" or pronoun references won't retrieve relevant chunks |
 | **No chunk deduplication or re-ranking** | `route.ts:115-121` | Duplicate or near-duplicate chunks can waste context window |
 | **No token budget for context** | `route.ts:115-144` | Large chunks could exceed model context with no truncation |
-| **Spec drift on LLM model** | `route.ts:149-151` vs `AGENT_SPEC.md:112` | Spec says `gemini-2.0-flash`, code uses Groq `llama-3.1-8b-instant` |
 | **Sources hidden in production** | `route.ts:202` | `TESTING_MODE` gate means clients get empty sources array unless testing is on |

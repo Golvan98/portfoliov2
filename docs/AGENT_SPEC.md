@@ -1,4 +1,10 @@
-# Recruiter Agent (Gemini + RAG-lite)
+# Recruiter Agent (Groq chat + Gemini embeddings + RAG-lite)
+
+## Current chat runtime
+
+Both Stage 3.5 query rewriting / intent classification and Stage 7 answer generation use the same selected model through the Groq API and `groq-sdk`. `GROQ_MODEL` optionally overrides the normal default `openai/gpt-oss-120b`. With `GROQ_FAST_MODE=true`, `GROQ_FAST_MODEL` optionally overrides the fast default `openai/gpt-oss-20b`. GPT-OSS is hosted by Groq, not run locally. See [ENV.md](ENV.md) for configuration and the preserved three-key fallback.
+
+The older RAG and prompt specification below is retained; this runtime repair does not change the implemented retrieval pipeline or prompts.
 
 ## Endpoint
 
@@ -52,7 +58,7 @@ Body: { message: string }
 }
 ```
 
-On quota exceeded:
+On visitor quota exceeded (HTTP 429):
 ```ts
 {
   error: 'quota_exceeded',
@@ -60,6 +66,16 @@ On quota exceeded:
   message: 'You have reached your daily limit. Sign in with Google for a higher quota.'
 }
 ```
+
+On AI provider or runtime failure (HTTP 503 for missing Groq configuration or Groq failures; HTTP 500 for other runtime failures):
+```ts
+{
+  error: 'ai_unavailable',
+  message: 'The AI assistant is temporarily unavailable. Please try again shortly.'
+}
+```
+
+Missing configuration, provider rate limits, and provider errors are distinguished internally without returning provider response bodies, credentials, or stack traces. Only HTTP 429 with `error: 'quota_exceeded'` exhausts the visitor's question quota in the chat UI. Other HTTP failures display the safe backend message, or the generic AI-unavailable message when the response has no message. Network failures retain a separate network-error message.
 
 ---
 
@@ -109,5 +125,5 @@ Inline citations in the answer body:
 - No answer without source support.
 - Out-of-scope questions get a polite redirect, not a hallucinated answer.
 - Max output tokens enforced via `AGENT_MAX_OUTPUT_TOKENS` env var (default: 400).
-- Chat model: `gemini-2.0-flash` via `@google/generative-ai` SDK.
+- Chat model: Groq-hosted `openai/gpt-oss-120b` by default, `openai/gpt-oss-20b` with `GROQ_FAST_MODE=true`, via `groq-sdk`. Optional overrides: `GROQ_MODEL`, `GROQ_FAST_MODEL`.
 - Embedding model: `text-embedding-004` (768 dimensions).

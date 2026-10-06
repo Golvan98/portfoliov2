@@ -7,7 +7,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ## Current Status
 
-**Last updated:** March 20, 2026
+**Last updated:** October 7, 2026
 **Deployed at:** https://portfoliov2-three-liard.vercel.app
 **GitHub:** https://github.com/Golvan98/portfoliov2
 **Supabase project ID:** liqlzqrylfhuuxqbyjho
@@ -27,7 +27,7 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
 | Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), guaranteed fetch of all `work_experience` and `project` docs on professional queries (deduplicated with vector results), Groq `llama-3.3-70b-versatile` answer generation with conversation history (last 4 turns) passed to main LLM call. `GROQ_FAST_MODE` env toggle switches to `llama-3.1-8b-instant` with chunk cap of 8. **Groq API key rotation:** `callGroqWithFallback()` helper cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` on 429 rate limit errors, effectively tripling the daily token budget from 100k to 300k TPD. Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) use `callGroqWithFallback`. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), guaranteed fetch of all `work_experience` and `project` docs on professional queries (deduplicated with vector results), Groq-hosted `openai/gpt-oss-120b` answer generation (optional `GROQ_MODEL` override) with conversation history (last 4 turns) passed to main LLM call. `GROQ_FAST_MODE=true` switches to `openai/gpt-oss-20b` (optional `GROQ_FAST_MODEL` override) with chunk cap of 8. **Groq API key rotation:** `callGroqWithFallback()` helper cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` on 429 rate limit errors. Multiple keys may share organization-level quotas; extra quota is not guaranteed. Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) use `callGroqWithFallback`. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
 | Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
 
@@ -86,7 +86,9 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - ✅ `TESTING_MODE` — set (`on` for local dev; when `off`/unset, source citations hidden from response)
 - ✅ Chunking config (`CHUNK_MIN_CHARS_BEFORE_SPLIT`, `CHUNK_TARGET_CHARS`, `CHUNK_OVERLAP_CHARS`) — set
 - ✅ Agent config (`AGENT_MAX_OUTPUT_TOKENS`, `AGENT_TOP_K` default 16, `AGENT_USER_DAILY_LIMIT`, `AGENT_ANON_DAILY_LIMIT`) — set
-- ✅ `GROQ_FAST_MODE` — optional (`true` switches to `llama-3.1-8b-instant` with chunk cap of 8; unset defaults to `llama-3.3-70b-versatile`)
+- `GROQ_FAST_MODE` — optional (`true` selects `GROQ_FAST_MODEL` with chunk cap of 8; any other value selects `GROQ_MODEL`)
+- `GROQ_MODEL` — optional normal-model override; code default `openai/gpt-oss-120b`
+- `GROQ_FAST_MODEL` — optional fast-model override; code default `openai/gpt-oss-20b`
 - ⚠️ `testgclientid` and `testgsecret` — stale test values still present (should be removed)
 
 ---
@@ -97,12 +99,12 @@ The following intentional changes were made via recent commits and differ from A
 
 | What | Docs say | Code uses | Reason |
 |---|---|---|---|
-| Chat model | `gemini-2.0-flash` | Groq `llama-3.3-70b-versatile` | Gemini free tier chat quota too restrictive; Groq provides generous free tier. Upgraded from `llama-3.1-8b-instant` for improved instruction following and factual accuracy |
+| Chat model (original specification) | `gemini-2.0-flash` | Groq-hosted `openai/gpt-oss-120b` / `openai/gpt-oss-20b` | Groq remains the provider; configurable GPT-OSS defaults replace the previous hard-coded models |
 | Embedding model | `text-embedding-004` | `gemini-embedding-001` | Avoid 404 / compatibility (commits ce54695, b36fc8f, 988c13f) |
 | Agent system prompt | Strict rules, hard refusals | Third-person voice, conversational, no hard refusals | Better UX — answers casual questions naturally, prioritizes recent activity |
 | Agent quota | Enforced for all users | Bypassed for admin (gilvinsz@gmail.com) | Admin should have unlimited access to own portfolio agent |
 
-**Chat completion** uses Groq SDK (`groq-sdk`) with `llama-3.3-70b-versatile` (upgraded from `llama-3.1-8b-instant`). The `@google/generative-ai` SDK has been removed from the project.
+**Chat completion and query rewriting** use Groq SDK (`groq-sdk`) with `openai/gpt-oss-120b` normally and `openai/gpt-oss-20b` when `GROQ_FAST_MODE=true`. `GROQ_MODEL` and `GROQ_FAST_MODEL` are optional server-side overrides; production works with the code defaults when they are absent. GPT-OSS is consumed through the Groq API, not locally. No OpenAI SDK is used.
 
 **Embeddings** still use Gemini REST API directly (not the SDK) with `gemini-embedding-001` and `outputDimensionality: 768`, which matches the pgvector column dimension. Gemini's embedding free tier has generous limits. No DB changes needed — vector dimensions stay at 768.
 
@@ -340,7 +342,18 @@ Groq API key rotation to increase rate limit headroom.
    - Added `callGroqWithFallback()` helper in `/api/agent/route.ts` that cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` env vars in order
    - On 429 (rate limit) errors, retries with the next key; bails immediately on all other errors
    - Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) now use `callGroqWithFallback` instead of a single Groq instance
-   - Effectively triples the daily token budget from 100k to 300k TPD before hitting rate limits
+   - Tries the next configured key on HTTP 429; multiple keys may share organization-level quotas, so additional quota is not guaranteed
 
 ### Env vars added:
 - `GROQ_API_KEY_2` and `GROQ_API_KEY_3` added to both `.env.local` and Vercel environment variables
+
+
+---
+
+## Session Log — October 7, 2026 — Sprint 1 runtime repair
+
+- Replaced hard-coded chat models with Groq-hosted GPT-OSS defaults and optional `GROQ_MODEL` / `GROQ_FAST_MODEL` overrides; preserved `GROQ_FAST_MODE`.
+- Preserved the three-key HTTP 429 fallback for both query rewriting and answer generation.
+- Added explicit missing-Groq-key detection and safe `ai_unavailable` responses for provider/runtime failures. Visitor quota remains HTTP 429 with `quota_exceeded`; the frontend now distinguishes this from availability failures and retains its network-error message.
+- RAG, embeddings, retrieval, prompts, quotas, auth, and history behavior are unchanged.
+- Validation: production build passes before and after the change; lint fails before and after because no ESLint configuration exists. The separate TypeScript check reports the same five pre-existing errors (build currently skips type validation). All 31 mocked route/frontend checks pass; live provider testing requires credentials absent from this workspace.
