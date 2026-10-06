@@ -121,29 +121,23 @@ export function ChatWidget() {
         body: JSON.stringify({ message: trimmed }),
       })
 
-      if (res.status === 429) {
-        const data = await res.json()
-        setQuotaExceeded(true)
-        setRemaining(0)
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: idCounter + 1,
-            role: "agent",
-            text: data.message ?? "You\u2019ve used all your questions for today.",
-          },
-        ])
-        setIdCounter((c) => c + 2)
-        return
-      }
-
       if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        const isQuotaExceeded = res.status === 429 && data?.error === "quota_exceeded"
+        if (isQuotaExceeded) {
+          setQuotaExceeded(true)
+          setRemaining(0)
+        }
         setMessages((prev) => [
           ...prev,
           {
             id: idCounter + 1,
             role: "agent",
-            text: "Sorry, I've hit my daily token limit — Gilvin runs this on Groq's free tier API keys to keep costs lean. The limit resets daily, so try again tomorrow!",
+            text: typeof data?.message === "string"
+              ? data.message
+              : isQuotaExceeded
+                ? "You\u2019ve used all your questions for today."
+                : "The AI assistant is temporarily unavailable. Please try again shortly.",
           },
         ])
         setIdCounter((c) => c + 2)

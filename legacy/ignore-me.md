@@ -1,5 +1,7 @@
 # PROGRESS.md — Session Checkpoint
 
+Archived March 5, 2026 snapshot: model references below describe historical behavior. Current Groq-hosted GPT-OSS defaults and optional overrides are documented in [ENV.md](../docs/ENV.md).
+
 Update this file at the END of every Claude Code session before closing VSCode.
 Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we left off. Then read all other /docs files."
 
