@@ -8,7 +8,7 @@ The Recruiter Agent answers questions grounded in Gilvin's actual content:
 - Work experience entries
 - Personal info entries (bio, education, skills, certifications)
 
-Do NOT embed `public_activity` rows for MVP — too noisy, adds no retrieval value.
+`public_activity` is not embedded or directly queried by the current agent. The original MVP decision excluded activity embedding for noise/redundancy. Whether temporal questions need structured live data is now an open investigation in [ROADMAP.md](ROADMAP.md), after knowledge freshness is verified.
 
 ---
 
@@ -30,7 +30,7 @@ Defaults (set via env vars):
 
 ## Content Blob Formats (knowledge_docs.content)
 
-These are the exact string formats to store as `content` in `knowledge_docs`.
+Project/task/note formats below come from `lib/rag/sync-knowledge-doc.ts`. Curated portfolio/work-experience formats are original content conventions, not implemented source-table sync builders. Current chat uses Groq-hosted GPT-OSS; both query and document embeddings remain Gemini `gemini-embedding-001`, 768 dimensions.
 
 ### Project doc
 ```
@@ -40,8 +40,11 @@ Content:
 Project: {title}
 Category: {category_name}
 Description: {description}
+Tasks: {total} total ({todo} to-do, {in_progress} in progress, {done} done)
 Updated: {updated_at}
 ```
+
+The `Tasks:` line is included when a task summary is supplied (as in current workspace project sync paths).
 
 ### Task doc
 ```
@@ -104,33 +107,51 @@ Content:
 (Full text blob as seeded — see DATA_MODEL.md personal_info seed SQL)
 ```
 Note: personal_info docs are seeded directly into knowledge_docs (no source table).
-They have no CRUD hooks — update manually in Supabase when info changes.
+They have no CRUD hooks — update manually in Supabase when info changes, maintain content/hash and mark `needs_embedding=true`, then invoke the embedding endpoint.
 
 ---
 
 ## Embedding Pipeline (Async / Batch)
 
-### Write-time (on CRUD of source content)
-1. Upsert `knowledge_docs` row with new `content` and `content_hash`
-2. If `content_hash` changed → set `needs_embedding = true`
-3. Do NOT embed synchronously (background job handles it)
+### Write-time: implemented browser-side sync
 
-### Batch job (runs on schedule or trigger)
-1. Find all `knowledge_docs` where `needs_embedding = true`
-2. For each doc:
-   a. Apply conditional chunking to `content`
-   b. Delete existing `knowledge_chunks` for this `doc_id`
-   c. Insert new chunks with `chunk_text` + `chunk_hash`
-   d. Embed each `chunk_text` → store as `embedding` vector
-3. Set `needs_embedding = false` on the doc
+`syncKnowledgeDoc()` uses the admin's browser Supabase session. It looks up `(source_type, source_id)` and compares a SHA-256 content hash, then updates or inserts a doc marked `needs_embedding=true`. This is not an atomic database upsert. Returned Supabase errors are not checked; source mutation success does not establish sync success.
 
-### Delete-time
-1. Delete `knowledge_docs` row
-2. `knowledge_chunks` cascade-delete automatically (via `on delete cascade`)
+| Mutation | Current knowledge update |
+|---|---|
+| Project create / rename / description edit | Sync that project doc, including task counts |
+| Task create / status change / delete | Sync/delete that task and refresh the parent project summary |
+| Task rename | Sync only the task; existing note titles/content are not refreshed |
+| Note save | Sync the note |
+| Project/task delete | Collect descendant IDs, delete source, then explicitly delete related knowledge docs |
+| Category create / rename / delete | No knowledge sync; embedded project category labels can remain stale |
+| Manual curated source-table edit | No checked-in hook copying the change into knowledge docs |
 
----
+Project renames do not refresh existing task/note content with the new project name. Sync helpers are best-effort and non-blocking from the user's perspective. These gaps require investigation; they are not a confirmed diagnosis of the live latest-task failure.
+
+### Batch endpoint: invocation is separate
+
+`POST /api/embed`, authenticated by `x-embed-secret` / `EMBED_SECRET`, reads flagged knowledge docs using service role. No scheduler or automatic caller is checked in; any external scheduling must be verified.
+
+For each doc, it chunks content, deletes existing chunks, calls Gemini for each replacement, inserts text/hash/vector, then clears `needs_embedding` and sets `knowledge_docs.updated_at` to the processing time. It does not inspect returned write errors or wrap replacement in a transaction. Partial failure/concurrent changes can leave inconsistent state. The endpoint does not read `portfolio_projects`, `work_experience`, or `public_activity` to discover source changes.
+
+### Delete-time and timestamps
+
+Deleting a knowledge doc relies on the documented `knowledge_chunks.doc_id ON DELETE CASCADE` to remove chunks. `knowledge_docs.source_id` is a generic identifier, not a cascading foreign key to every source table; source deletion alone is insufficient.
+
+`knowledge_docs.updated_at` is changed by sync and embedding. Content `Updated:` lines reflect builder inputs, which sometimes use the current browser time (including parent-project summary refresh), not a freshly read source timestamp. Neither field by itself proves latest task activity. Verify the deployed schema and timestamps during lane 2.
 
 ## Retrieval (at query time)
+
+The route embeds the rewritten query (or raw question fallback) and calls `match_knowledge_chunks` with threshold **0.5** and `AGENT_TOP_K` default **16**, using service role. The intended database search is pgvector cosine similarity over chunks joined to doc metadata. RPC SQL is not checked in, so deployed ordering/filtering must be inspected rather than inferred from old example SQL.
+
+Professional queries also attempt full project/work-experience document reads filtered to the visitor's `owner_id`. These are not guaranteed portfolio-wide reads. Supplements precede vector results; vector chunks overlapping supplemental doc IDs are excluded. Fast mode caps merged context at eight entries; normal mode has no additional cap. See [agent_pipeline.md](agent_pipeline.md).
+
+There is no explicit recency tie-breaker, temporal intent route or live activity lookup in application code. The former “prefer fresher updated_at” line was a design aspiration, not verified behavior. Current-state correctness remains unresolved; verify freshness before semantic retrieval refinement per [ROADMAP.md](ROADMAP.md).
+
+## HISTORICAL — Original retrieval SQL sketch
+
+Preserved as the MVP design sketch, not the deployed RPC definition. The current route calls the RPC with a threshold and supplements as described above.
 
 ```sql
 SELECT
@@ -145,6 +166,3 @@ JOIN knowledge_docs kd ON kd.id = kc.doc_id
 ORDER BY kc.embedding <=> $q_embedding  -- cosine distance
 LIMIT $AGENT_TOP_K;
 ```
-
-- Use service role client (server-side only)
-- Tie-breaker: prefer fresher `updated_at` when similarity scores are close

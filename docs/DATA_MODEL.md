@@ -1,8 +1,9 @@
 # Data Model (Supabase)
 
 ## Important Notes
-- Embeddings use pgvector. Vector dimension is **768** (Google Gemini `text-embedding-004`).
-- If you change the embedding model, update the vector dimension here and recreate the index.
+- This is a schema reference plus historical SQL templates, not a verified export of the deployed database. No migration files or deployed-schema exports are checked in; `match_knowledge_chunks` SQL is absent. The quota RPC template is in USAGE_LIMITS. SQL below has not been executed by this reconciliation.
+- Embeddings use pgvector, **768** dimensions from Gemini `gemini-embedding-001` with explicit output dimensionality. Groq-hosted GPT-OSS is chat-only; its migration required no vector/schema changes.
+- Any future embedding change needs compatibility/re-embedding review; a chat-model change alone does not require changing dimensions or indexes.
 - All UUIDs use `gen_random_uuid()` as default.
 - All timestamps use `timestamptz default now()`.
 
@@ -28,7 +29,9 @@ Seed Gilvin's user_id here after first Google OAuth login. Do NOT hard-code emai
 
 ---
 
-## Admin-Only Tables (MyHeadSpace)
+## MyHeadSpace Tables (admin writes; public-read intent)
+
+The app allows visiting the workspace without redirecting. The SQL templates in [RLS_AUTH.md](RLS_AUTH.md) restrict reads too, conflicting with glass-wall intent; deployed policy state needs verification.
 
 ```
 categories
@@ -74,9 +77,9 @@ public_activity
   id            uuid pk default gen_random_uuid()
   owner_id      uuid not null references auth.users(id)
   action        text not null  -- 'create' | 'update' | 'delete'
-  entity_type   text not null  -- 'project' | 'task'
+  entity_type   text not null  -- app sends 'project' | 'task' | 'category'
   entity_id     uuid not null
-  entity_title  text not null  -- snapshot of title at time of action
+  entity_title  text not null  -- current app stores a preformatted action/context message
   created_at    timestamptz default now()
 ```
 
@@ -93,7 +96,7 @@ CREATE INDEX ON public.public_activity (created_at DESC);
 knowledge_docs
   id            uuid pk default gen_random_uuid()
   owner_id      uuid not null references auth.users(id)
-  source_type   text not null  -- 'project' | 'task' | 'note' | 'portfolio_project'
+  source_type   text not null  -- 'project' | 'task' | 'note' | 'portfolio_project' | 'work_experience' | 'personal_info'
   source_id     uuid not null
   title         text not null
   content       text not null
@@ -113,6 +116,10 @@ knowledge_chunks
   created_at   timestamptz default now()
   updated_at   timestamptz default now()
 ```
+
+`source_id` is a generic source identifier; no source-table cascade is declared here. Sync looks up `(source_type, source_id)`, but this reference does not define a unique constraint for that pair: verify deployed uniqueness. Explicit source deletion cleanup and doc-to-chunk cascade are distinct.
+
+`knowledge_docs.updated_at` changes on both sync and embedding; it is not a reliable source-event timestamp. Category creation currently supplies an empty activity entity ID, inconsistent with the documented UUID column. These are open verification targets in [BACKLOG.md](BACKLOG.md) and [ROADMAP.md](ROADMAP.md), lanes 2–3.
 
 Required indexes:
 ```sql
@@ -162,8 +169,8 @@ These are Gilvin's flagship/showcase projects only (ClipNET, StudySpring, MyHead
 Personal or hobby projects are NOT included here.
 
 Seeded once via SQL after first deploy. Updated manually in Supabase table editor when needed.
-When a row is updated, content_hash change detection triggers re-embedding automatically.
-No admin UI for this table — Supabase table editor is sufficient (only 3 rows).
+No checked-in hook copies edits from this source table into `knowledge_docs`. Its corresponding knowledge content/hash must be synchronized and marked `needs_embedding=true` before a separate `/api/embed` invocation; automatic end-to-end refresh is not established.
+No admin UI exists for this table. The original seed below has three entries; this is not a claim about current deployed row count or the five hardcoded landing cards.
 
 ```
 portfolio_projects
@@ -187,7 +194,7 @@ CREATE INDEX ON public.portfolio_projects (display_order ASC);
 CREATE INDEX ON public.portfolio_projects (is_published) WHERE is_published = true;
 ```
 
-Seed SQL (run once after deploy):
+HISTORICAL — original portfolio seed SQL (preserved, not verified current content; do not blindly rerun):
 ```sql
 INSERT INTO public.portfolio_projects (owner_id, name, role, summary, tech_list, bullets, links, display_order)
 VALUES
@@ -229,7 +236,7 @@ VALUES
 
 **CRITICAL:** This table exists PURELY to give the AI agent context about Gilvin's work history.
 No UI reads from this table. Seeded once via SQL. Updated manually in Supabase table editor when a new role is added.
-When a row is updated, content_hash change detection triggers re-embedding automatically.
+No checked-in hook copies edits from this source table into `knowledge_docs`. Its corresponding knowledge content/hash must be synchronized and marked `needs_embedding=true` before a separate `/api/embed` invocation; automatic end-to-end refresh is not established.
 
 ```
 work_experience
@@ -254,7 +261,7 @@ CREATE INDEX ON public.work_experience (display_order ASC);
 CREATE INDEX ON public.work_experience (is_current) WHERE is_current = true;
 ```
 
-Seed SQL (run once after deploy, after app_admins is seeded):
+HISTORICAL — original work-experience seed SQL (preserved, not verification of current roles):
 ```sql
 INSERT INTO public.work_experience
   (owner_id, company, role, industry, duration, description, highlights, tech_list, is_current, display_order)
@@ -336,7 +343,7 @@ VALUES
 ## Personal Info (RAG Seed Only — Static Knowledge)
 
 No table needed for these — they are seeded directly as `knowledge_docs` rows with source_type `personal_info`.
-Run this SQL after app_admins is seeded.
+HISTORICAL — original personal-info seed SQL below is preserved. Verify current content before applying any update; these inserts are not idempotent. Historical MyHeadSpace seed text names OpenAI, but the current runtime uses Groq chat and Gemini embeddings.
 
 ```sql
 -- Bio / About
@@ -419,7 +426,8 @@ Community Involvement:
 );
 ```
 
--- Additional work experience: FABLAB Mindanao (from resume, was missing)
+```sql
+-- HISTORICAL additional work experience seed: FABLAB Mindanao (from resume, was missing)
 -- Run this alongside the work_experience seed SQL
 INSERT INTO public.work_experience
   (owner_id, company, role, industry, duration, description, highlights, tech_list, is_current, display_order)
@@ -437,3 +445,15 @@ VALUES (
   false,
   5
 );
+```
+
+## Chat history — current application contract
+
+These tables are used by the route but their CREATE TABLE/RLS definitions are not checked in. This is a field-usage reference, not replacement migration SQL:
+
+| Table | Fields read/written by the application | Scope |
+|---|---|---|
+| `agent_chat_history` | `user_id`, `role`, `content`, `sources`, `created_at` | Four messages for model context; latest 20 for authenticated display history |
+| `anon_chat_history` | `hashed_ip`, `role`, `content`, `sources`, `created_at` | Four messages for model context shared by hashed IP; no anonymous display-history endpoint |
+
+The route inserts `user`/`assistant` roles and stores source metadata even when POST citations are hidden. Verify deployed types, indexes, defaults and RLS before schema work. See [agent_pipeline.md](agent_pipeline.md).

@@ -4,7 +4,7 @@
 
 Both Stage 3.5 query rewriting / intent classification and Stage 7 answer generation use the same selected model through the Groq API and `groq-sdk`. `GROQ_MODEL` optionally overrides the normal default `openai/gpt-oss-120b`. With `GROQ_FAST_MODE=true`, `GROQ_FAST_MODEL` optionally overrides the fast default `openai/gpt-oss-20b`. GPT-OSS is hosted by Groq, not run locally. See [ENV.md](ENV.md) for configuration and the preserved three-key fallback.
 
-The older RAG and prompt specification below is retained; this runtime repair does not change the implemented retrieval pipeline or prompts.
+Current behavior below is verified against the route at `ea2bb82`. The original prompt is retained in an explicitly historical section.
 
 ## Endpoint
 
@@ -15,28 +15,24 @@ Body: { message: string }
 
 ---
 
-## Steps (LOCKED — execute in this order)
+## Current request flow
 
-1. **Enforce quota (hybrid)**
-   - If user is logged in → check `agent_usage_user_daily` via `consume_agent_quota` RPC
-   - If anonymous → check `agent_usage_ip_daily` via `consume_agent_quota` RPC (hashed IP)
-   - If quota exceeded → return 429 with remaining = 0, do NOT call Gemini
+1. Validate `{ message: string }`, resolve session and hash the forwarded IP.
+2. For non-admin visitors, consume one question via `consume_agent_quota` before any Groq rewrite/completion or Gemini query-embedding call. Admin email bypasses quota. `/api/embed` has separate secret authentication and does not consume visitor quota.
+3. Select the Groq model; read up to four history messages. When history exists, attempt query rewriting and professional/casual classification; otherwise use the raw question and professional intent. Rewrite failure falls back without failing the request.
+4. Embed the search query using Gemini `gemini-embedding-001` with 768 dimensions.
+5. Call service-role `match_knowledge_chunks` with threshold 0.5 and `AGENT_TOP_K` (default 16). Professional queries attempt supplemental project/work-experience docs filtered by the visitor's `owner_id`; this does not guarantee Gilvin's docs for every visitor. Merge supplements with vector results, removing overlap by doc ID; fast mode caps merged context at eight entries.
+6. Generate a grounded answer with Groq using system prompt, history and original question. Clean citation/formatting artifacts, save history, return answer, sources and remaining quota.
 
-2. **Embed the user question**
-   - Call Gemini embeddings API (`text-embedding-004`) with the user's message → `q_embedding`
+The detailed current behavior and limitations are in [agent_pipeline.md](agent_pipeline.md). The GPT-OSS migration intentionally left this RAG flow unchanged.
 
-3. **Similarity search**
-   - Query `knowledge_chunks` via pgvector cosine distance
-   - Return top K chunks (default `AGENT_TOP_K` = 8)
-   - Include: `chunk_text`, `doc_id`, `chunk_index`, `title`, `source_type`, `updated_at`
-   - Use service role client (never anon client)
+## Current answer behavior and correctness limits
 
-4. **Build answer**
-   - Pass retrieved chunks as SOURCES into the system prompt (see template below)
-   - Answer ONLY from retrieved chunks
+The prompt asks for third-person, concise, recruiter-friendly answers grounded in supplied evidence about Gilvin, and admits missing details. Casual/off-topic conversation is allowed. Professional intent asks the model to avoid unsolicited personal/hobby content. These are instructions, not guarantees of correctness.
 
-5. **Return response**
-   - Shape: see Response Shape section below
+FORMAT instructions suppress introductions and inline citations, despite earlier conflicting instructions in the same prompt; post-processing removes common introduction and citation patterns. Separate source metadata is built from vector results, not the exact merged/capped context. POST sources are gated by `TESTING_MODE`; stored history sources are not gated by the history endpoint.
+
+For “current/latest” questions, the prompt asks the model to prioritize recent/in-progress sources. **There is no dedicated temporal routing, live task/project/activity lookup, or explicit recency ordering in the route.** The user-reported production test returned a March 6 task while `/now` showed recent ClipNET activity. This remains an active correctness issue; see [ROADMAP.md](ROADMAP.md) lanes 2–3. Answer-quality problems such as an elaborate response to “hey” and unsolicited personal details remain open as well.
 
 ---
 
@@ -47,14 +43,15 @@ Body: { message: string }
   answer: string,
   sources: [
     {
-      source_type: string,    // 'project' | 'task' | 'note' | 'portfolio_project'
+      source_type: string,    // project, task, note, portfolio_project, work_experience, personal_info
       title: string,
       snippet: string,        // first ~150 chars of chunk_text
       updated_at: string,
       doc_id: string,
       chunk_index: number
     }
-  ]
+  ],
+  remaining: number | null // null for admin bypass (Infinity serialized as JSON)
 }
 ```
 
@@ -67,7 +64,7 @@ On visitor quota exceeded (HTTP 429):
 }
 ```
 
-On AI provider or runtime failure (HTTP 503 for missing Groq configuration or Groq failures; HTTP 500 for other runtime failures):
+On AI provider or runtime failure (HTTP 503 for missing Groq configuration or `Groq.APIError` failures; HTTP 500 for other runtime failures):
 ```ts
 {
   error: 'ai_unavailable',
@@ -75,13 +72,13 @@ On AI provider or runtime failure (HTTP 503 for missing Groq configuration or Gr
 }
 ```
 
-Missing configuration, provider rate limits, and provider errors are distinguished internally without returning provider response bodies, credentials, or stack traces. Only HTTP 429 with `error: 'quota_exceeded'` exhausts the visitor's question quota in the chat UI. Other HTTP failures display the safe backend message, or the generic AI-unavailable message when the response has no message. Network failures retain a separate network-error message.
+Missing configuration, provider rate limits, and provider errors are distinguished internally without returning provider response bodies, credentials, or stack traces. Among error responses, only HTTP 429 with `error: 'quota_exceeded'` marks visitor quota exhausted in the chat UI. A successful reply with `remaining: 0` also disables further sends. Other HTTP failures display the safe backend message, or the generic AI-unavailable message when the response has no message. Network failures retain a separate network-error message.
 
 ---
 
-## System Prompt Template (LOCKED)
+## HISTORICAL — Original system prompt template (superseded)
 
-Use this exact system message. Do not modify guardrails or citation format.
+Preserved as the original MVP specification, not the current runtime prompt or instructions to restore it. The route now permits casual/off-topic replies and suppresses inline citations; see Current answer behavior above.
 
 ```
 You are "Gilvin's Portfolio Assistant" — a helpful, grounded agent that answers recruiter questions about Gilvin's work, projects, and experience.
@@ -110,7 +107,7 @@ Content: {chunk_text}
 
 ---
 
-## Citation Style (LOCKED)
+## HISTORICAL — Original citation style (superseded)
 
 Inline citations in the answer body:
 - `From Task: Implement RLS policies (updated 2026-02-19): …`
@@ -119,11 +116,11 @@ Inline citations in the answer body:
 
 ---
 
-## Guardrails Summary
+## Current guardrails summary
 
-- No invented details — ever.
-- No answer without source support.
-- Out-of-scope questions get a polite redirect, not a hallucinated answer.
+- Prompt instructions prohibit invented facts about Gilvin; enforcement and regression coverage remain refinement work.
+- Portfolio answers should be grounded in supplied evidence; greetings/general conversation need not use sources.
+- Missing details should be acknowledged briefly; casual/off-topic questions can receive helpful replies.
 - Max output tokens enforced via `AGENT_MAX_OUTPUT_TOKENS` env var (default: 400).
 - Chat model: Groq-hosted `openai/gpt-oss-120b` by default, `openai/gpt-oss-20b` with `GROQ_FAST_MODE=true`, via `groq-sdk`. Optional overrides: `GROQ_MODEL`, `GROQ_FAST_MODEL`.
-- Embedding model: `text-embedding-004` (768 dimensions).
+- Embedding model: `gemini-embedding-001` (768 dimensions).

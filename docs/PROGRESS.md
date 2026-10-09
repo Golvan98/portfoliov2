@@ -1,7 +1,6 @@
-# PROGRESS.md — Session Checkpoint
+# Progress — Implemented State and History
 
-Update this file at the END of every Claude Code session before closing VSCode.
-Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we left off. Then read all other /docs files."
+Record completed implementation and factual session history here. Future order lives in [ROADMAP.md](ROADMAP.md); concrete open tasks live in [BACKLOG.md](BACKLOG.md). Start future sessions with [README_FOR_CLAUDE.md](README_FOR_CLAUDE.md), which applies to any coding/reasoning agent.
 
 ---
 
@@ -14,6 +13,13 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ---
 
+## Current post-launch checkpoint
+
+- **DONE — runtime revival substantially complete:** commit `ea2bb82` migrated Groq chat/rewrite defaults to `openai/gpt-oss-120b` / `openai/gpt-oss-20b`, preserving optional overrides, fast mode and HTTP 429 key fallback. Gemini embeddings (`gemini-embedding-001`, 768 dimensions), Supabase/pgvector retrieval, prompts, quota policy and history were unchanged. Provider/runtime failures now use `ai_unavailable`, distinct from visitor `quota_exceeded`.
+- **User-reported live verification:** the agent is operational after revival. This updates the earlier repair-session note that live credentials were unavailable during that session; no new live test was performed during this documentation pass.
+- **Unresolved live correctness:** `/now` showed ClipNET activity from approximately two hours earlier, but “What is his most recent task rn?” returned “update project descriptions”, project “myHeadSpace & Portfolio v2”, last updated 2026-03-06. No fix is implemented. A prompt asking for recent context is not a verified latest-state capability.
+- **Next direction:** Knowledge Freshness & Sync, closely followed by Temporal / Current-State Awareness; see [ROADMAP.md](ROADMAP.md). This is future work, not completed implementation.
+
 ## Phase Completion
 
 | Phase | Status | Notes |
@@ -24,12 +30,12 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 | Phase 4 — Database & Auth | ✅ Done | Google OAuth working, auth callback, admin check via service role, middleware refreshing tokens |
 | Phase 5 — Admin Gate | ✅ Done | `is-admin.ts` helper, service role admin check, glass wall toast on unauthorized mutations |
 | Phase 6 — MyHeadSpace Admin CRUD | ✅ Done | Full 3-column workspace: sidebar (categories/projects), kanban board (todo/in_progress/done), task details + notes panel. All CRUD operations functional for admin. |
-| Phase 7 — Activity Logging | ✅ Done | `logActivity()` helper fires on every project/task create/update/delete, inserts into `public_activity` |
+| Phase 7 — Activity Logging | ✅ Done | Category/project/task activity call sites implemented; project description edits lack a call and insert success is not checked. See ACTIVITY_SPEC. |
 | Phase 8 — Activity Widget + /now | ✅ Done | ActivityFeed on homepage with realtime subscription, `/now` page with load-more pagination, `timeAgo()` relative timestamps |
-| Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` and `deleteKnowledgeDoc()` helpers called on every CRUD operation. Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
-| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 query rewriting (fetches last 4 chat messages, rewrites query resolving pronouns, classifies intent as professional/casual via Groq), Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), guaranteed fetch of all `work_experience` and `project` docs on professional queries (deduplicated with vector results), Groq-hosted `openai/gpt-oss-120b` answer generation (optional `GROQ_MODEL` override) with conversation history (last 4 turns) passed to main LLM call. `GROQ_FAST_MODE=true` switches to `openai/gpt-oss-20b` (optional `GROQ_FAST_MODEL` override) with chunk cap of 8. **Groq API key rotation:** `callGroqWithFallback()` helper cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` on 429 rate limit errors. Multiple keys may share organization-level quotas; extra quota is not guaranteed. Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) use `callGroqWithFallback`. System prompt tuned for third-person voice, no hard refusals, prioritizes recent activity context. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` toggle controls source citation visibility. |
+| Phase 9 — RAG-lite Pipeline | ✅ Done | `/api/embed` endpoint with EMBED_SECRET auth, conditional chunking (1200 chars / 150 overlap), `syncKnowledgeDoc()` / `deleteKnowledgeDoc()` wired to project/task/note mutations (best-effort; dependent rename coverage is incomplete). Project docs now include task status summaries (todo/in-progress/done counts). Parent project doc re-synced on every task create/delete/status change. |
+| Phase 10 — Agent API Route | ✅ Done | `/api/agent` with full flow: quota enforcement via `consume_agent_quota` RPC (admin bypass for gilvinsz@gmail.com), Stage 3.5 fetches up to 4 chat messages and attempts query rewriting/intent classification via Groq only when history exists, Gemini embedding (`gemini-embedding-001`, 768 dims) on rewritten query, pgvector similarity search via `match_knowledge_chunks` RPC (top K default 16), supplemental `work_experience` and `project` doc reads on professional queries filtered by visitor owner ID (not guaranteed portfolio-wide; vector overlap removed by doc ID), Groq-hosted `openai/gpt-oss-120b` answer generation (optional `GROQ_MODEL` override) with conversation history (up to 4 messages) passed to main LLM call. `GROQ_FAST_MODE=true` switches to `openai/gpt-oss-20b` (optional `GROQ_FAST_MODEL` override) with chunk cap of 8. **Groq API key rotation:** `callGroqWithFallback()` helper cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` on 429 rate limit errors. Multiple keys may share organization-level quotas; extra quota is not guaranteed. Both Stage 3.5 (query rewriting) and Stage 7 (main LLM call) use `callGroqWithFallback`. System prompt requests third-person voice, no hard refusals, and recent project/task context; current-state correctness is unresolved. Intent-based instruction: professional queries exclude personal/hobby content, casual queries allow it. FORMAT rules: no angle brackets around source titles, use `•` bullets only (no asterisks), no markdown bold, no self-introduction, no inline source citations. Post-processing strips `[n]` citation markers, `**bold**` wrappers, `<angle brackets>`, self-introduction phrases, inline `From X:` citations, and converts `*` to `•`. Saves user+assistant messages to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous, keyed by hashed IP). `TESTING_MODE` gates new POST source metadata; stored history sources are returned without that gate. |
 | Phase 11 — Wire Agent Chat UI | ✅ Done | Floating ChatWidget (bottom-right sparkles icon), persistent chat history for logged-in users (loads last 20 messages on mount), typing indicator, source citations with `timeAgo()` relative dates (max 4), quota display, sign-in nudge for anon users |
-| Phase 12 — Polish | 🟡 Partial | Custom 404 page done. 4th project card added (Automated Needs Assessment Survey). Glass wall RLS still broken. See Known Bugs below. |
+| Phase 12 — Polish | 🟡 Partial | Custom 404 and five current project cards implemented. Glass-wall RLS mismatch was previously reported and still needs deployment verification; see Known Limitations below. |
 
 ---
 
@@ -38,24 +44,25 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 ### Pages
 - **`/`** — Hero, proof cards, activity widget (realtime), projects section, about, contact, footer, ChatWidget
 - **`/now`** — Activity history with load-more, fetches `public_activity` (20 per page)
-- **`/myheadspace`** — Server component with admin guard, passes initial categories/projects to Workspace client component
+- **`/myheadspace`** — Server component checks admin status for mutation controls, without redirecting visitors; passes session-scoped categories/projects to Workspace
 - **`/auth/callback`** — OAuth code exchange, redirects admin to `/myheadspace`, others to `/`
 - **`not-found.tsx`** — Custom 404 with "Back to portfolio" button
 
 ### API Routes
-- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → embed question → vector search → LLM answer with sources → save to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous)
-- **`/api/embed`** — Background embedding job: finds `needs_embedding=true` docs, chunks, embeds via Gemini (`gemini-embedding-001`, 768 dims), stores vectors
+- **`/api/agent`** — Full RAG pipeline: quota check (admin bypass) → history/optional rewrite → query embedding → vector/supplemental retrieval → Groq answer → save to `agent_chat_history` (authenticated) or `anon_chat_history` (anonymous)
+- **`/api/agent/history`** — Authenticated display history (newest 20 messages, sorted chronologically); anonymous requests return an empty list.
+- **`/api/embed`** — Secret-authenticated batch endpoint (no scheduler checked in): finds `needs_embedding=true` docs, chunks, embeds via Gemini (`gemini-embedding-001`, 768 dims), stores vectors
 
 ### Key Components
-- **`workspace.tsx`** (~717 lines) — Full MyHeadSpace CRUD: categories, projects, tasks, task_notes. Admin guard (toast on unauthorized mutation). RAG sync on every CRUD op (non-blocking). Project docs include task status summaries; parent project re-synced on task create/delete/status change. `updateProjectDescription()` updates description in DB and triggers immediate RAG sync.
-- **`kanban-board.tsx`** (~446 lines) — 3-column kanban (To Do / In Progress / Done) with inline editing. Displays project description below tabs with click-to-edit (admin) and muted placeholder when empty.
-- **`sidebar.tsx`** (~465 lines) — Category tree with expandable projects, inline editing. Project creation form includes optional description textarea.
-- **`task-card.tsx`** (155 lines) — Individual task card with status dropdown, edit, delete
-- **`task-details.tsx`** (115 lines) — Right panel showing task info and notes textarea
-- **`chat-widget.tsx`** (~365 lines) — Floating agent UI with persistent chat history (last 20 messages loaded on mount for logged-in users), source citations (relative dates via `timeAgo()`), quota display, auth modal trigger
+- **`workspace.tsx`** — Full MyHeadSpace CRUD: categories, projects, tasks, task_notes. Admin guard (toast on unauthorized mutation). Best-effort RAG sync on project/task/note mutation paths; category changes and dependent renames are not propagated. Project docs include task status summaries; parent project re-synced on task create/delete/status change. `updateProjectDescription()` updates description in DB and calls knowledge-doc sync; embedding requires a separate batch run.
+- **`kanban-board.tsx`** — 3-column kanban (To Do / In Progress / Done) with inline editing. Displays project description below tabs with click-to-edit (admin) and muted placeholder when empty.
+- **`sidebar.tsx`** — Category tree with expandable projects, inline editing. Project creation form includes optional description textarea.
+- **`task-card.tsx`** — Individual task card with status dropdown, edit, delete
+- **`task-details.tsx`** — Right panel showing task info and notes textarea
+- **`chat-widget.tsx`** — Floating agent UI with persistent chat history (last 20 messages loaded on mount for logged-in users), source citations (relative dates via `timeAgo()`), quota display, auth modal trigger
 - **`activity-feed.tsx`** — Realtime subscription on `public_activity` inserts for live updates
-- **`activity-list.tsx`** (124 lines) — Paginated activity list with colored action dots, 30s timestamp refresh
-- **`auth-modal.tsx`** (72 lines) — Google OAuth trigger with quota tier explanation
+- **`activity-list.tsx`** — Paginated activity list with colored action dots, 30s timestamp refresh
+- **`auth-modal.tsx`** — Google OAuth trigger with quota tier explanation
 - **`navbar.tsx`** — Sticky nav with user avatar/sign-out dropdown, mobile hamburger menu
 
 ### Lib/Utilities
@@ -64,8 +71,8 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`lib/supabase/middleware.ts`** — Token refresh on every request
 - **`lib/auth/is-admin.ts`** — `getAdminStatus()` returns `{ isAdmin, userId }`, uses service role for `app_admins` lookup
 - **`lib/activity/log-activity.ts`** — Inserts into `public_activity`
-- **`lib/rag/sync-knowledge-doc.ts`** (123 lines) — Upserts/deletes `knowledge_docs`, content blob builders for project/task/note
-- **`lib/rag/chunk.ts`** (27 lines) — Conditional chunking with configurable thresholds
+- **`lib/rag/sync-knowledge-doc.ts`** — Upserts/deletes `knowledge_docs`, content blob builders for project/task/note
+- **`lib/rag/chunk.ts`** — Conditional chunking with configurable thresholds
 - **`lib/types.ts`** — TypeScript interfaces for Category, Project, Task, TaskNote
 - **`lib/time-ago.ts`** — Relative timestamp formatting
 
@@ -74,7 +81,10 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 - **`next.config.mjs`** — `ignoreBuildErrors: true`, `images.unoptimized: true`
 - **`package.json`** — Next.js 16.1.6, React 19.2.4, groq-sdk, @supabase/ssr 0.8.0, Tailwind 4.2.0, 60+ shadcn/ui components
 
-### Env Vars (`.env.local`)
+### HISTORICAL — previously reported environment setup
+
+The following setup notes were recorded in earlier sessions, not reverified locally or in Vercel by this pass. Use [ENV.md](ENV.md) for current code-consumed names/defaults. In particular, `AGENT_USER_DAILY_LIMIT` and `AGENT_ANON_DAILY_LIMIT` are unused by application code; quotas come from DB RPC/tables.
+
 - ✅ `NEXT_PUBLIC_SUPABASE_URL` — set
 - ✅ `NEXT_PUBLIC_SUPABASE_ANON_KEY` — set
 - ✅ `SUPABASE_SERVICE_ROLE_KEY` — set
@@ -93,11 +103,11 @@ Next session opener: "Continue Portfolio v2. Read /docs/PROGRESS.md for where we
 
 ---
 
-## Model Deviations from Docs
+## Historical model/policy changes and current outcome
 
-The following intentional changes were made via recent commits and differ from AGENT_SPEC.md / RAG_LITE.md:
+These superseded specifications explain implementation history; current AGENT_SPEC/RAG_LITE docs now describe the implemented flow:
 
-| What | Docs say | Code uses | Reason |
+| What | Historical specification | Current implementation | Rationale recorded |
 |---|---|---|---|
 | Chat model (original specification) | `gemini-2.0-flash` | Groq-hosted `openai/gpt-oss-120b` / `openai/gpt-oss-20b` | Groq remains the provider; configurable GPT-OSS defaults replace the previous hard-coded models |
 | Embedding model | `text-embedding-004` | `gemini-embedding-001` | Avoid 404 / compatibility (commits ce54695, b36fc8f, 988c13f) |
@@ -106,36 +116,24 @@ The following intentional changes were made via recent commits and differ from A
 
 **Chat completion and query rewriting** use Groq SDK (`groq-sdk`) with `openai/gpt-oss-120b` normally and `openai/gpt-oss-20b` when `GROQ_FAST_MODE=true`. `GROQ_MODEL` and `GROQ_FAST_MODEL` are optional server-side overrides; production works with the code defaults when they are absent. GPT-OSS is consumed through the Groq API, not locally. No OpenAI SDK is used.
 
-**Embeddings** still use Gemini REST API directly (not the SDK) with `gemini-embedding-001` and `outputDimensionality: 768`, which matches the pgvector column dimension. Gemini's embedding free tier has generous limits. No DB changes needed — vector dimensions stay at 768.
+**Embeddings** still use Gemini REST API directly (not the SDK) with `gemini-embedding-001` and `outputDimensionality: 768`, which matches the pgvector column dimension. No DB changes needed — vector dimensions stay at 768.
 
 ---
 
-## Known Bugs & Blockers
+## Known Limitations (not completed work)
 
-### Critical — Blocks Functionality
-
-1. **Glass wall RLS mismatch — non-admin visitors see empty workspace.**
-   `/myheadspace/page.tsx` fetches categories and projects using `createClient()` (session-scoped, respects RLS). The RLS policies on `categories`, `projects`, `tasks`, and `task_notes` are all `admin_only FOR ALL` — meaning anonymous and non-admin users get zero rows back. The workspace renders but is completely empty for visitors. **Fix:** Add public SELECT policies on these 4 tables in Supabase SQL editor, keeping INSERT/UPDATE/DELETE as admin-only.
-
-### Medium — Should Fix Before Production
-
-2. **`ignoreBuildErrors: true` in `next.config.mjs`** — Hides TypeScript errors during build. Should be set to `false` and any build errors fixed.
-
-3. **Stale test OAuth credentials in `.env.local`** — Lines `testgclientid` and `testgsecret` are unused test values that should be removed for hygiene.
-
-4. **Vercel env vars may be stale.** `GEMINI_API_KEY`, `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, and `EMBED_SECRET` are set locally and in Vercel's environment. Verify all are present if agent/embed endpoints fail after redeployment.
-
-### Low — Nice to Have
-
-5. **ChatWidget initial quota unknown** — Quota remaining is only fetched after the first agent response. Initial state shows nothing until first interaction.
-
-6. **No drag-and-drop on kanban** — Task status changes are via kebab menu only (documented as intentional for MVP in BACKLOG.md).
-
-7. **Middleware deprecation warning** — Next.js warns about deprecated middleware pattern (should use "proxy"). Functional but should be migrated eventually.
+- **Active correctness problem:** the latest-task production discrepancy above remains unresolved. Code inspection shows incomplete rename propagation, unchecked sync/batch write errors, no checked-in batch scheduler, visitor-scoped supplemental doc reads and ambiguous knowledge timestamps. These are investigation targets, not a proven root cause; details are in [RAG_LITE.md](RAG_LITE.md) and [BACKLOG.md](BACKLOG.md).
+- **Answer behavior:** the user reports an elaborate current-status answer to “hey”, unsolicited hobbies/personal details, and awkward or over-assumptive replies. Correct evidence and then behavior need evaluation.
+- **Glass-wall visibility:** non-admin empty workspaces were previously reported. Session-scoped page reads and the admin-only SELECT templates are consistent with that failure, but deployed policies were not inspected in this pass. Do not report it fixed or apply old SQL blindly.
+- **Build/tooling:** `next.config.mjs` still sets `ignoreBuildErrors: true`. The runtime-repair session recorded existing TypeScript/lint failures and earlier sessions reported a middleware warning; these checks were not rerun for this documentation-only change.
+- **UI:** initial remaining quota is unknown until the first agent response. Task status changes use menus, not drag-and-drop. A mobile sidebar exists, but task details are hidden at smaller breakpoints.
+- **Configuration/setup:** old local credential and Vercel setup notes below are historical, not current verification. No environment files or deployment settings were inspected/changed during reconciliation.
 
 ---
 
-## Pending Manual Actions
+## HISTORICAL — Earlier manual-action checklist (completion unverified)
+
+Preserved as a record of previously requested setup, not a current runbook. Verify deployed tables/policies/content before repeating anything below. Current actionable verification is tracked in BACKLOG; no SQL, embedding call, credential rotation or configuration change was performed here. The historical command's literal secret is replaced with a placeholder.
 
 **To fix glass wall (Critical Bug #1):**
 1. Add public SELECT policies for `categories`, `projects`, `tasks`, `task_notes` in Supabase SQL editor:
@@ -153,7 +151,7 @@ The following intentional changes were made via recent commits and differ from A
 3. Update "About Gilvin Zalsos" doc — new title: Full Stack Developer (Backend-focused) · DevOps Engineer · AI Solutions. Set `needs_embedding = true`.
 4. Update "Education — Gilvin Zalsos" doc — add MSU-IIT IDS high school, capstone project (Automated Needs Assessment Survey, PHP/MySQL, 2018). Set `needs_embedding = true`.
 5. Insert "Automated Needs Assessment Survey" into `portfolio_projects` and corresponding `knowledge_docs` row. Set `needs_embedding = true`.
-6. Trigger re-embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: 461d55ba99cf7857075d1a79ee705c1b2ac385c797e02d5495442883a5f43722"`
+6. Trigger re-embedding: `curl -X POST https://portfoliov2-three-liard.vercel.app/api/embed -H "x-embed-secret: <EMBED_SECRET>"`
 
 **To sync Vercel deployment:**
 7. Ensure `GEMINI_API_KEY`, `GROQ_API_KEY`, `GROQ_API_KEY_2`, `GROQ_API_KEY_3`, and `EMBED_SECRET` are set in Vercel env vars (Settings → Environment Variables) — all confirmed set as of March 20
@@ -164,7 +162,7 @@ The following intentional changes were made via recent commits and differ from A
 
 ---
 
-## Session Log — February 28, 2026
+## HISTORICAL Session Log — February 28, 2026
 
 ### Commits pushed today:
 1. **`58a56d9`** — `feat: expand RAG sources, tune agent prompt, fix citation dates`
@@ -211,7 +209,9 @@ The following intentional changes were made via recent commits and differ from A
 
 ---
 
-## Session Log — March 5, 2026
+## HISTORICAL Session Log — March 5, 2026
+
+The logout fix below reset the history-load ref; current code does not clear the already displayed message array on logout. The original session wording is retained as history.
 
 Bug-fix marathon across the agent chat and MyHeadSpace workspace. No new features — all 8 commits are stability and UX fixes.
 
@@ -240,7 +240,7 @@ Bug-fix marathon across the agent chat and MyHeadSpace workspace. No new feature
 
 ---
 
-## Session Log — March 6, 2026
+## HISTORICAL Session Log — March 6, 2026
 
 Landing page polish and activity feed message overhaul.
 
@@ -269,7 +269,9 @@ Landing page polish and activity feed message overhaul.
 
 ---
 
-## Session Log — March 15, 2026
+## HISTORICAL Session Log — March 15, 2026
+
+The notes below preserve that session's observations and model names, not current guarantees. “Last 4 turns” meant four stored messages. “Guaranteed fetch” is limited by the visitor owner-ID filter and fast-mode cap. Reported answer improvements do not establish permanent regression coverage or resolve the current live correctness issue.
 
 Agent output quality improvements and MyHeadSpace project description feature.
 
@@ -333,11 +335,11 @@ Agent output quality improvements and MyHeadSpace project description feature.
 
 ---
 
-## Session Log — March 20, 2026
+## HISTORICAL Session Log — March 20, 2026
 
 Groq API key rotation to increase rate limit headroom.
 
-### Changes (uncommitted):
+### Changes (uncommitted at that session; subsequently committed as `4805c06`):
 1. **Groq API key rotation with 429 fallback**
    - Added `callGroqWithFallback()` helper in `/api/agent/route.ts` that cycles through `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` env vars in order
    - On 429 (rate limit) errors, retries with the next key; bails immediately on all other errors
@@ -350,10 +352,15 @@ Groq API key rotation to increase rate limit headroom.
 
 ---
 
-## Session Log — October 7, 2026 — Sprint 1 runtime repair
+## HISTORICAL Session Log — October 7, 2026 — Sprint 1 runtime repair
 
 - Replaced hard-coded chat models with Groq-hosted GPT-OSS defaults and optional `GROQ_MODEL` / `GROQ_FAST_MODEL` overrides; preserved `GROQ_FAST_MODE`.
 - Preserved the three-key HTTP 429 fallback for both query rewriting and answer generation.
 - Added explicit missing-Groq-key detection and safe `ai_unavailable` responses for provider/runtime failures. Visitor quota remains HTTP 429 with `quota_exceeded`; the frontend now distinguishes this from availability failures and retains its network-error message.
 - RAG, embeddings, retrieval, prompts, quotas, auth, and history behavior are unchanged.
 - Validation: production build passes before and after the change; lint fails before and after because no ESLint configuration exists. The separate TypeScript check reports the same five pre-existing errors (build currently skips type validation). All 31 mocked route/frontend checks pass; live provider testing requires credentials absent from this workspace.
+
+
+## Documentation reconciliation — October 7, 2026
+
+Reviewed every Markdown file under `docs/` and the legacy snapshot against repository implementation/history. Created the ordered ROADMAP, separated open BACKLOG work from completed history, corrected runtime/quota/sync claims, and marked original prompts/seeds/UI briefs as historical. The legacy snapshot was deliberately preserved. This pass made documentation changes only; no application, migration, dependency, configuration or deployment changes. Permanent evaluation coverage remains planned; prior mocked checks are historical validation, not a checked-in suite.

@@ -1,39 +1,37 @@
-# Claude Code Entry — Read Order & Authority
+# Repository Guide for Coding and Reasoning Agents
 
-This repo builds **Gilvin Portfolio v2** (Next.js + Supabase + Gemini + RAG-lite).
+The filename is retained for compatibility; this guide applies to any agent. Portfolio v2 / MyHeadSpace is already shipped: Next.js + Supabase, Groq-hosted GPT-OSS chat and Gemini embeddings.
 
-## Authority Rules (must obey)
-- **DECISIONS.md is the single source of truth.**
-- If any other file conflicts with DECISIONS.md, **DECISIONS.md wins.**
-- Do NOT wait for UI approval. Build the baseline UI immediately, then iterate when screenshots or Figma arrive.
+## Read order and document roles
 
-## Read Order (read in this exact sequence)
-1. `DECISIONS.md` — locked decisions (authoritative)
-2. `SCOPE.md` — phased delivery & what's in/out
-3. `DATA_MODEL.md` — tables, columns, indexes
-4. `RLS_AUTH.md` — exact RLS policies (copy/paste SQL)
-5. `ACTIVITY_SPEC.md` — activity logging rules + /now page
-6. `RAG_LITE.md` — embeddings, chunking, pipeline
-7. `AGENT_SPEC.md` — agent behavior + system prompt template
-8. `USAGE_LIMITS.md` — quota enforcement + RPC contract
-9. `UI_INPUTS.md` — UI is iterative; build baseline first
-10. `GLOSSARY.md` — terminology reference
+1. [PROGRESS.md](PROGRESS.md) — implemented state, factual history and known limitations.
+2. [ROADMAP.md](ROADMAP.md) — ordered post-launch lanes and current sprint direction.
+3. [AGENT_SPEC.md](AGENT_SPEC.md) — current agent contract, error semantics and behavior limits.
+4. [agent_pipeline.md](agent_pipeline.md) — implemented request/history/retrieval/ingestion paths.
+5. [ENV.md](ENV.md) — variables actually consumed by code and their defaults.
+6. [DATA_MODEL.md](DATA_MODEL.md) — schema reference, application field usage and historical seeds.
+7. [DECISIONS.md](DECISIONS.md) — durable decisions and rationale, with superseded choices labeled.
 
-## Non-Negotiables (summary — full rules in DECISIONS.md)
-- Only **gilvinsz@gmail.com** can CREATE/UPDATE/DELETE MyHeadSpace content.
-- MyHeadSpace is accessible at `/myheadspace` — NOT `/admin`. It is branded as a distinct workspace product.
-- `/myheadspace` is publicly viewable — do NOT redirect unauthorized users.
-- Unauthorized mutation attempts (create/update/delete) show a toast: "This workspace is Gilvin's private area — only he can make changes."
-- RLS handles actual write protection at the DB level.
-- Activity must log on every CREATE/UPDATE/DELETE for projects and tasks.
-- `/now` route must exist and show longer activity history.
-- Embeddings tables are NOT publicly selectable under any circumstance.
-- Agent answers using retrieval only — inline "From …" citations required.
-- Hybrid quotas: logged-in users get per-user limits, anonymous get per-IP limits — both DB-backed.
+Then consult [BACKLOG.md](BACKLOG.md) for concrete open tasks, [RAG_LITE.md](RAG_LITE.md) for ingestion, [USAGE_LIMITS.md](USAGE_LIMITS.md), [RLS_AUTH.md](RLS_AUTH.md), [ACTIVITY_SPEC.md](ACTIVITY_SPEC.md) and [GLOSSARY.md](GLOSSARY.md). SCOPE and UI_INPUTS preserve original MVP briefs.
 
----
+## Authority and current focus
 
-## Key URLs (Locked)
+- Follow the current user task and its scope. Verify repository code when docs conflict; do not treat “locked” wording or SQL examples as evidence of deployed behavior.
+- **Do not assume `legacy/` docs are current.** Historical prompts, seed data, models and session observations must remain labeled history; do not silently turn them into present-day instructions.
+- GPT-OSS revival is implemented and the user has confirmed the live agent operates. Chat uses Groq `openai/gpt-oss-120b` normally / `openai/gpt-oss-20b` in fast mode; embeddings use Gemini `gemini-embedding-001`, 768 dimensions. RAG was intentionally unchanged.
+- **The next focus is Knowledge Freshness & Sync. Do not redesign RAG before locating the source of stale/current-state behavior.** The production latest-task discrepancy is unresolved. Temporal intent and possible live structured reads follow closely; these are planned behavior, not shipped features.
+- Verify source mutation → knowledge doc → embedding/chunk → retrieved evidence, including rename/delete propagation, IDs, timestamps, ownership and external job invocation. Fresh `/now` activity is not proof of fresh AI evidence.
+- PROGRESS records what happened; ROADMAP sets order; BACKLOG contains open actions; DECISIONS explains choices. Update the relevant document without duplicating the entire roadmap.
+
+## Product and implementation boundaries
+
+- `/myheadspace` is the workspace route, with admin-only mutations and a public-viewing product intent. The page does not redirect visitors; actual visibility depends on RLS, whose previously reported mismatch still requires verification.
+- Workspace admin lookup uses `app_admins`; the agent quota bypass separately checks the admin email. Visitor quotas are DB-backed and distinct from provider rate limits.
+- Knowledge tables have no intended public SELECT access. Server routes use service role; browser sync uses the admin session. Never expose the service-role key.
+- The agent UI is the floating widget on `/` and `/now`; no `/chat` route exists. Inline citations are suppressed; POST metadata and history visibility differ (see pipeline).
+- Landing project cards and About copy are hardcoded. Read `components/projects-section.tsx` and `app/page.tsx` for current content/links instead of old placeholders.
+
+## Key URLs
 
 - **Live site:** https://portfoliov2-three-liard.vercel.app
 - **GitHub:** https://github.com/Golvan98/portfoliov2
@@ -42,12 +40,3 @@ This repo builds **Gilvin Portfolio v2** (Next.js + Supabase + Gemini + RAG-lite
 - **GitHub profile:** https://github.com/Golvan98
 - **LinkedIn:** https://www.linkedin.com/in/gilvin-zalsos-213692141/
 - **Resume PDF:** https://drive.google.com/file/d/1d_RmS4N7g7aRTEP-VICP0yKygA8KKmfn/view?usp=sharing
-
-## About Section Copy (Hardcoded — do not change)
-
-"I'm Gilvin Zalsos — a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from 'messy input' to 'clean output.' My technical comfort zone is end-to-end backend execution — designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize — especially in backend/pipeline-heavy work — that's what I do."
-
-## Project Card Links
-
-- ClipNET and StudySpring buttons (Test it out / View code): href="#" — links not ready yet, keep as placeholder
-- MyHeadSpace Test it out: href="/myheadspace"
