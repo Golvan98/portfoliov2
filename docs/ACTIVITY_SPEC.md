@@ -1,31 +1,31 @@
 # Activity Spec (Public Snippet + /now Page)
 
-## What to Log
+## Current logging coverage
 
-Log on EVERY successful CREATE/UPDATE/DELETE of:
-- `projects`
-- `tasks`
+`workspace.tsx` calls `logActivity()` after successful category create/rename/delete, project create/rename/delete, and task create/rename/status-change/delete. Task notes are not logged. **Project description edits currently have no activity call.** The original requirement to log every project/task mutation is therefore not fully met.
 
-Do NOT log `categories` or `task_notes` for MVP.
+Category logging was added in March 2026; category creation passes an empty `entity_id` even though the documented schema uses UUID. The helper does not inspect returned insert errors, so a call is not proof of a stored activity row. See [BACKLOG.md](BACKLOG.md) for verification tasks.
 
 ## Logging Method (LOCKED: App-Code)
 
-After every successful DB mutation, insert into `public_activity`:
+Current calls attempt to insert a message snapshot into `public_activity` using the browser session:
 
 ```ts
 await supabase.from('public_activity').insert({
   owner_id: session.user.id,
   action: 'create' | 'update' | 'delete',
-  entity_type: 'project' | 'task',
+  entity_type: 'project' | 'task' | 'category',
   entity_id: <row.id>,
-  entity_title: <row.title>,  // snapshot — do NOT store reference, store the value
+  entity_title: <message>,  // preformatted action/context snapshot, not just a title
 })
 ```
 
-Message format rendered in UI:
-- "Gilvin just created project: {entity_title}"
-- "Gilvin just updated task: {entity_title}"
-- "Gilvin just deleted task: {entity_title}"
+Both activity components render `Gilvin` followed by the stored `entity_title`, for example:
+- `created project "{title}" under {category}`
+- `created task "{title}" in project {project}`
+- `marked "{title}" as Done in project {project}`
+
+The older “Gilvin just …” bare-title format was superseded by commit `a8cc915`; see the March 6 history in [PROGRESS.md](PROGRESS.md).
 
 ---
 
@@ -43,6 +43,10 @@ Message format rendered in UI:
 - Route: `/now`
 - Shows longer activity history from `public_activity`
 - Ordered by `created_at DESC`
-- Supports **pagination or "load more"** (implement load more for MVP simplicity)
-- Optional (nice-to-have): group items by day
+- Loads 20 rows initially; “Load more” fetches 20 older rows using the last `created_at` as cursor
+- No day grouping or realtime subscription on `/now` is implemented; displayed relative timestamps refresh every 30 seconds
 - This is the destination when the user clicks "see more" from the landing widget
+
+## Activity freshness is not agent freshness
+
+The feed reads `public_activity` directly; the agent does not. A recent feed entry does not establish that knowledge docs/chunks were updated or retrieved. The reported ClipNET/latest-task discrepancy remains unresolved; [ROADMAP.md](ROADMAP.md) lanes 2–3 prioritize sync and temporal evidence investigation.

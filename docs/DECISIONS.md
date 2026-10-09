@@ -1,6 +1,6 @@
-# Decisions (Locked) — Single Source of Truth
+# Decisions — Architecture and Product Rationale
 
-If any file conflicts with this document, this document wins.
+This document records durable decisions and explicitly superseded choices. Verify repository code when documentation conflicts with implementation; a decision records intent, not proof it is enforced. See [PROGRESS.md](PROGRESS.md) for shipped history, [ROADMAP.md](ROADMAP.md) for ordered refinements, and [BACKLOG.md](BACKLOG.md) for unresolved tasks.
 
 ---
 
@@ -10,10 +10,7 @@ If any file conflicts with this document, this document wins.
 - projects
 - tasks
 
-Message format (locked):
-- "Gilvin just created project: {title}"
-- "Gilvin just updated task: {title}"
-- "Gilvin just deleted task: {title}"
+Current message decision (March 6, `a8cc915`): store action/context prose in `entity_title`; the UI prepends “Gilvin”. Categories now also have logging calls. The original “Gilvin just …” bare-title format is historical. Project description edits currently lack logging, so the every-mutation requirement is not fully implemented; see [ACTIVITY_SPEC.md](ACTIVITY_SPEC.md).
 
 Logging method: app-code only (after successful DB mutation, insert into public_activity).
 
@@ -39,7 +36,7 @@ Logging method: app-code only (after successful DB mutation, insert into public_
 - Admin gating method: `app_admins` table (LOCKED — not hard-coded email in RLS).
 - RLS checks admin via: `EXISTS (SELECT 1 FROM app_admins WHERE user_id = auth.uid())`
 - Admin route: `/myheadspace` (NOT `/admin`) — branded as a distinct workspace product.
-- `/myheadspace` is publicly VIEWABLE — anyone can visit and browse the workspace.
+- `/myheadspace` has public-viewing intent and no page redirect. Actual data visibility depends on deployed RLS; the original admin-only SELECT templates conflict with that intent and require verification.
 - Only `gilvinsz@gmail.com` can mutate data (create/update/delete).
 - Unauthorized users who attempt any mutation (clicking "+ New Task", editing, deleting) see a non-blocking toast/flash message: "This workspace is Gilvin's private area — only he can make changes."
 - RLS enforces this at the DB level regardless. The toast is a frontend affordance for visibility and recruiter experience.
@@ -64,8 +61,8 @@ Embed content from:
 - It does NOT drive the landing page UI — landing page project cards are HARDCODED in the component.
 - These are Gilvin's FLAGSHIP projects only (ClipNET, StudySpring, MyHeadSpace) — not personal/hobby projects.
 - Seeded once via SQL. Updated manually in Supabase table editor when flagship project details change.
-- When updated, RAG pipeline re-embeds the new content automatically (content_hash change detection).
-- There is NO admin UI for portfolio_projects — Supabase table editor is sufficient for 3 rows.
+- Curated source edits require corresponding knowledge-doc synchronization and a separate embedding run. The repo has no automatic source-table hook; content-hash detection only operates when `syncKnowledgeDoc()` is called.
+- There is NO admin UI for portfolio_projects; original seed SQL had three rows, not a verified current count.
 - Landing page stays hardcoded forever unless Gilvin manually edits the component file.
 
 Do NOT embed `public_activity` rows for MVP (too noisy, redundant).
@@ -84,11 +81,17 @@ Embedding update policy:
 - Delete: remove `knowledge_docs` row; chunks cascade-delete
 
 Embedding pipeline:
-- Async/batch: background job finds `needs_embedding = true` rows and processes them
+- Async/batch: the secret-authenticated `/api/embed` endpoint finds `needs_embedding = true` docs and processes them. No scheduler is checked in; do not assume flagged docs have been processed.
 
 ---
 
 ## D) Agent Behavior
+
+**Current decision:** Ground claims about Gilvin in supplied evidence, speak in third person, acknowledge missing details, and keep answers concise. Casual/off-topic conversation is allowed. FORMAT instructions and cleanup suppress introductions/inline citations; source metadata is separate and POST visibility is controlled by `TESTING_MODE`. Prompt conflicts and citation/history limitations are documented in [AGENT_SPEC.md](AGENT_SPEC.md).
+
+Prompt requests for recent/in-progress context do not establish current-state correctness. The live latest-task failure remains unresolved; no structured temporal lookup is implemented. Diagnose freshness before changing retrieval.
+
+**HISTORICAL — original MVP answer policy, superseded:**
 
 - Answer ONLY from retrieved chunks. Do NOT invent any detail not present in sources.
 - If sources don't contain the answer: respond with "I don't have that detail in my portfolio data."
@@ -109,19 +112,25 @@ Defaults:
 - Logged-in: 20 prompts/day
 - Anonymous: 5 prompts/day
 
-Quota is enforced server-side via `consume_agent_quota` RPC before any Gemini call.
+Quota is consumed once per non-admin agent question via `consume_agent_quota`, before Groq rewriting/completion and Gemini query embedding. The admin email bypasses it; batch embeddings do not use visitor quota. Limits come from DB RPC/tables, not the unused daily-limit env names. Provider failures use `ai_unavailable`; visitor exhaustion uses `quota_exceeded`. See [USAGE_LIMITS.md](USAGE_LIMITS.md).
 
 ---
 
 ## F) Embeddings Visibility
 
 - `knowledge_docs` and `knowledge_chunks` are NOT publicly selectable.
-- `/api/agent` and the embedding job access them via service role only (server-side).
+- Agent/history/embedding routes use server-side service role. Workspace sync accesses knowledge docs using the admin browser session under RLS; no service-role secret is exposed to the browser.
 - No public RLS SELECT policy on these tables — ever.
 
 ---
 
 ## G) Model Strategy
+
+**Current decision — GPT-OSS revival (`ea2bb82`):** Groq via `groq-sdk` hosts both query rewriting and answer generation. Normal default `openai/gpt-oss-120b`; `GROQ_FAST_MODE=true` selects fast default `openai/gpt-oss-20b`. Optional overrides are `GROQ_MODEL` and `GROQ_FAST_MODEL`. `GROQ_API_KEY` → `GROQ_API_KEY_2` → `GROQ_API_KEY_3` fallback occurs on HTTP 429 only; shared quotas mean three keys do not guarantee triple quota.
+
+Gemini remains embedding-only: `gemini-embedding-001`, 768 dimensions. Retrieval remains Supabase/pgvector/`match_knowledge_chunks`. The provider repair intentionally did not change RAG, prompts, quota policy or history. Output cap defaults to 400 tokens, vector top-K to 16, fast merged-context cap to eight. See [ENV.md](ENV.md).
+
+**HISTORICAL — original model specification, superseded:**
 
 - Use Google Gemini as the AI provider.
 - Chat model: `gemini-2.0-flash`. Embedding model: `text-embedding-004` (768 dims).
@@ -140,7 +149,7 @@ Quota is enforced server-side via `consume_agent_quota` RPC before any Gemini ca
 
 ## I) /myheadspace Visibility (Glass Wall)
 
-- `/myheadspace` is publicly VIEWABLE by anyone — do NOT gate the page behind auth.
+- Keep the public glass-wall product intent; the page is not gated behind auth. The known RLS/template mismatch means public row visibility still needs verification.
 - The workspace being visible to recruiters is intentional — it shows Gilvin's real work and organization.
 - Mutation attempts (create/update/delete) by non-admins are handled as follows:
   - Frontend: show a non-blocking toast/flash message — "This workspace is Gilvin's private area — only he can make changes."
@@ -187,7 +196,7 @@ Quota is enforced server-side via `consume_agent_quota` RPC before any Gemini ca
 - Auto-dismisses after 3 seconds
 - Fires on any mutation attempt by non-admin
 
-**Pages finalized — no more pages needed for MVP:**
+**HISTORICAL — original MVP page checklist (these pages/components are now implemented):**
 - `/` ✓
 - `/now` ✓
 - `/myheadspace` ✓
@@ -200,7 +209,7 @@ Quota is enforced server-side via `consume_agent_quota` RPC before any Gemini ca
 
 ## L) Personal Info & Static Links (LOCKED)
 
-**About section copy (landing page — hardcoded):**
+**HISTORICAL — original approved About copy (minor wording later changed in `app/page.tsx`):**
 > "I'm Gilvin Zalsos — a backend-focused builder from the Philippines with a strong ops + data foundation. I like working on the parts of software that make everything else feel smooth and reliable: APIs, background jobs, automation pipelines, and the systems that move data from 'messy input' to 'clean output.' My technical comfort zone is end-to-end backend execution — designing services, wiring integrations, handling storage, and making workflows observable and repeatable. If you want someone who can ship, debug, and systematize — especially in backend/pipeline-heavy work — that's what I do."
 
 **Static links (hardcoded in navbar + footer):**
@@ -211,8 +220,8 @@ Quota is enforced server-side via `consume_agent_quota` RPC before any Gemini ca
 - Vercel URL: https://portfoliov2-three-liard.vercel.app (no custom domain for MVP)
 
 **Project card external links:**
-- ClipNET and StudySpring "Test it out" and "View code" buttons: leave href as `#` for now — links not ready yet
-- MyHeadSpace "Test it out" button: links to `https://portfoliov2-three-liard.vercel.app/myheadspace`
+- Current source is `components/projects-section.tsx`: ClipNET links to `https://clipnet.ai/` with a private-repo label; StudySpring has live/demo and GitHub links; MyHeadSpace 2.0 links to the workspace and this repo. MyHeadSpace v1.0 and Automated Needs Assessment Survey bring the current list to five cards.
+- **HISTORICAL:** The original ClipNET/StudySpring `#` placeholders were superseded; do not restore them.
 
 **OG tags for `app/layout.tsx`:**
 - title: "Gilvin Zalsos — Full Stack Developer"

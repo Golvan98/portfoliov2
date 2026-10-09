@@ -1,5 +1,7 @@
 # Scope & Phasing
 
+> **HISTORICAL — original MVP scope and phasing.** The app has shipped; this is not the current implementation checklist. See [PROGRESS.md](PROGRESS.md) for completed work and [ROADMAP.md](ROADMAP.md) for post-launch priorities. Current UI uses a floating chat widget, five hardcoded project cards and no separate experience timeline. Category activity logging was added later. Public workspace visibility remains the product intent, with a previously reported RLS mismatch still needing deployment verification. Knowledge Freshness & Sync is next; current/latest-state answers remain unreliable.
+
 ## Phase 1 — Foundation
 - Next.js app shell + routes
 - Tailwind + shadcn/ui baseline

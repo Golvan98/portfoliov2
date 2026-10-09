@@ -1,4 +1,6 @@
-# RLS + Auth — SQL Templates (Copy/Paste into Supabase)
+# RLS + Auth — SQL Reference Templates
+
+> **NEEDS CLARIFICATION:** These are original policy templates, not an audited snapshot of deployed RLS or instructions to rerun SQL. No migrations establish deployment state here. The MyHeadSpace `FOR ALL` admin policies below also restrict SELECT, conflicting with public glass-wall intent; that mismatch was previously reported and remains unverified. The `app_admins` policies self-reference the table; `getAdminStatus()` uses service role explicitly to avoid circular policy issues. Chat-history tables used by the current routes are missing from these templates. Track verification in [BACKLOG.md](BACKLOG.md); [ROADMAP.md](ROADMAP.md) separates UI visibility from security review.
 
 All policies use the `app_admins` table for admin checks. Do NOT hard-code email strings in RLS.
 
@@ -121,7 +123,7 @@ USING (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
 
 ## 6) Embeddings Tables (NO Public Access)
 
-Agent and embedding job access these via service role server-side only.
+Agent and embedding job read these via service role server-side. Workspace sync also reads/writes `knowledge_docs` using the admin browser session under RLS; no service-role key is exposed there. These tables have no public-read policy in the templates.
 
 ```sql
 CREATE POLICY "knowledge_docs_admin_only"
@@ -158,7 +160,7 @@ WITH CHECK (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid
 ## 8) portfolio_projects (RAG Seed Only — Service Role Access)
 
 **NOTE:** This table is NOT read by the landing page UI (hardcoded).
-It is accessed ONLY by the server-side RAG embedding pipeline via service role.
+The current embedding endpoint reads `knowledge_docs`, not this source table. Any source-to-knowledge seed/sync must be performed separately; no automatic hook is checked in.
 No public SELECT policy needed — service role bypasses RLS.
 Admin can write via Supabase table editor (service role).
 
@@ -187,7 +189,7 @@ USING (EXISTS (SELECT 1 FROM public.app_admins a WHERE a.user_id = auth.uid()));
 
 ## 9) work_experience (RAG Seed Only — Service Role Access)
 
-**NOTE:** This table is NOT read by any UI. Accessed ONLY by the server-side RAG embedding pipeline via service role.
+**NOTE:** This table is NOT read by any UI or directly by the current embedding endpoint. The agent reads `knowledge_docs` with `source_type=work_experience`, not this source table.
 No public SELECT policy needed. Updated manually via Supabase table editor when a new role is added.
 
 ```sql

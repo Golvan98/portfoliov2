@@ -1,5 +1,7 @@
 # UI Inputs (Iterative)
 
+> **HISTORICAL — initial UI input/build brief.** Preserve these baseline proposals as history, not instructions to rebuild the shipped UI or override the current task. The current workspace uses kanban, the agent uses a floating widget (no `/chat` page), and the landing page has five project cards and no separate experience timeline. `app/page.tsx` and `components/myheadspace/` describe the implemented layout. Future UI refinement is lane 9 in [ROADMAP.md](ROADMAP.md). References to Claude below belong to the original brief and apply to no particular coding agent today.
+
 ## Critical Rule
 **Claude must NOT wait for UI approval. Build the baseline UI immediately, then iterate when screenshots or Figma arrive.**
 
